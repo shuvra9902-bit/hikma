@@ -11,8 +11,6 @@
   
   <script src="https://cdn.tailwindcss.com"></script>
   
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <script>
     tailwind.config = {
       theme: {
@@ -36,6 +34,9 @@
         background-color: white !important;
         color: black !important;
       }
+      .print-visible {
+        display: block !important;
+      }
     }
     .animate-fade-in {
       animation: fadeIn 0.25s ease-out forwards;
@@ -56,24 +57,18 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    // Initialize Supabase Client Connection
-    const SUPABASE_URL = "https://noddojjnufbemzdqukjr.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vZGRvampudWZiZW16ZHF1a2pyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NDg3NTQsImV4cCI6MjA5NjEyNDc1NH0.bdVOO10mcwAaV2R26aGG-vhRBkef-Su37x0oJagsGDM";
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
     // Config defaults
     const CLASSES = ['Play Group', 'Nursery', 'KG', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'SSC'];
     const SECTIONS = ['A', 'B', 'C', 'Gold', 'Silver'];
     const SHIFTS = ['Morning', 'Day'];
-    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const WEEKS_IN_MONTH = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+    const WEEKS = Array.from({ length: 52 }, (_, i) => `Week ${i + 1}`);
 
     const SEED_TEACHERS = [
-      { id: 'teach_1', teacher_name: 'Mustafa Rahman' },
-      { id: 'teach_2', teacher_name: 'Dr. Fatema Nasrin' },
-      { id: 'teach_3', teacher_name: 'Sheikh Abdullah' },
-      { id: 'teach_4', teacher_name: 'Rumana Chowdhury' },
-      { id: 'teach_5', teacher_name: 'Farhan Ahmed' },
+      { id: 'teach_1', teacher_id: 't101', teacher_name: 'Mustafa Rahman', passcode: 'hikma11' },
+      { id: 'teach_2', teacher_id: 't102', teacher_name: 'Dr. Fatema Nasrin', passcode: 'hikma22' },
+      { id: 'teach_3', teacher_id: 't103', teacher_name: 'Sheikh Abdullah', passcode: 'hikma33' },
+      { id: 'teach_4', teacher_id: 't104', teacher_name: 'Rumana Chowdhury', passcode: 'hikma44' },
+      { id: 'teach_5', teacher_id: 't105', teacher_name: 'Farhan Ahmed', passcode: 'hikma55' },
     ];
 
     const SEED_PLANS = [
@@ -85,7 +80,6 @@
         shift: 'Morning',
         subject_name: 'English Writing',
         lesson_date: new Date().toISOString().split('T')[0],
-        month_name: 'January',
         week_number: 'Week 1',
         class_work: 'Practiced tracing lowercase letters a to f on the whiteboard. Spelled simple vocabulary: cat, dog, sun. (অ্যালফাবেট লিখতে সাহায্য করা হয়েছে ও বোর্ডে অনুশীলন করানো হয়েছে।)',
         homework: 'Practice writing letters a to f in class script copy twice.',
@@ -99,18 +93,34 @@
         shift: 'Morning',
         subject_name: 'Arts & Crafts',
         lesson_date: new Date().toISOString().split('T')[0],
-        month_name: 'January',
         week_number: 'Week 1',
         class_work: 'Completed fingerprint painting of trees using water-soluble organic colors. Encouraged collaboration and neat clean-up. (আঙুলের ছাপ দিয়ে রঙিন ছবি আঁকার অনুশীলন)।',
         homework: 'Collect three fall leaves and glue them on clean drawing paper.',
         created_at: Date.now() - 3600000 * 5,
+      },
+      {
+        id: 'seed_plan_3',
+        teacher_name: 'Sheikh Abdullah',
+        class_name: 'One',
+        section: 'A',
+        shift: 'Day',
+        subject_name: 'Mathematics',
+        lesson_date: new Date().toISOString().split('T')[0],
+        week_number: 'Week 2',
+        class_work: 'Discussed basic addition mechanisms using count beads (1 to 10). Solved standard page 15 mental math grid. (কাউন্টিং বিড ব্যবহার করে ১ হতে ১০ পর্যন্ত যোগ অংক সমাধান করা হলো।)',
+        homework: 'Complete math puzzle 3 on page 17 of workbook.',
+        created_at: Date.now() - 3600000 * 10,
       }
     ];
 
     // High fidelity school logo SVG
     function Logo({ className = "h-12 w-12" }) {
       return (
-        <svg viewBox="0 0 320 300" className={className} xmlns="http://www.w3.org/2000/svg">
+        <svg 
+          viewBox="0 0 320 300" 
+          className={className}
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <rect x="0" y="0" width="100" height="300" fill="#0082C8" rx="4" />
           <rect x="110" y="0" width="100" height="300" fill="#0082C8" rx="4" />
           <rect x="220" y="0" width="100" height="300" fill="#0082C8" rx="4" />
@@ -125,125 +135,242 @@
       );
     }
 
-    // SVG Icons
-    function BookOpenIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>; }
-    function ShieldIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M20 13c0 5-3.5 7.5-7.66 9.7a1 1 0 0 1-.68 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 .76-.97l8-2a1 1 0 0 1 .48 0l8 2A1 1 0 0 1 20 6z"/></svg>; }
-    function LogOutIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>; }
-    function TrashIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>; }
-    function EditIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"/></svg>; }
-    function PrinterIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>; }
-    function FileDownIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>; }
-    function SearchIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>; }
-    function PlusIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>; }
+    // SVG icon helper components
+    function BookOpenIcon() {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      );
+    }
 
+    // SVG shield icon
+    function ShieldIcon() {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M20 13c0 5-3.5 7.5-7.66 9.7a1 1 0 0 1-.68 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 .76-.97l8-2a1 1 0 0 1 .48 0l8 2A1 1 0 0 1 20 6z"/></svg>
+      );
+    }
+
+    function LogOutIcon() {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      );
+    }
+
+    function TrashIcon() {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+      );
+    }
+
+    function EditIcon() {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4z"/></svg>
+      );
+    }
+
+    function PrinterIcon() {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      );
+    }
+
+    function FileDownIcon() {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      );
+    }
+
+    function SearchIcon() {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      );
+    }
+
+    function PlusIcon() {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      );
+    }
+
+    function KeyIcon() {
+      return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+      );
+    }
+
+    // MAIN COMPONENT EXPORT
     function App() {
       const [activeTab, setActiveTab] = useState('teacher');
-      const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => localStorage.getItem('hikma_admin_auth') === 'true');
-      const [teachers, setTeachers] = useState([]);
-      const [plans, setPlans] = useState([]);
       
-      const [globalMonth, setGlobalMonth] = useState(() => localStorage.getItem('hikma_current_month_html') || 'January');
-      const [globalWeek, setGlobalWeek] = useState(() => localStorage.getItem('hikma_current_week_html') || 'Week 1');
+      const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
+        return localStorage.getItem('hikma_admin_auth') === 'true';
+      });
 
-      // Fetch cloud data from Supabase on launch
+      const [loggedInTeacher, setLoggedInTeacher] = useState(() => {
+        const cached = localStorage.getItem('hikma_logged_in_teacher');
+        return cached ? JSON.parse(cached) : null;
+      });
+
+      const [teachers, setTeachers] = useState(() => {
+        const cached = localStorage.getItem('hikma_teachers_roster_html');
+        return cached ? JSON.parse(cached) : SEED_TEACHERS;
+      });
+
+      const [plans, setPlans] = useState(() => {
+        const cached = localStorage.getItem('hikma_lessons_plans_html');
+        return cached ? JSON.parse(cached) : SEED_PLANS;
+      });
+
+      const [currentWeek, setCurrentWeek] = useState(() => {
+        return localStorage.getItem('hikma_current_week_html') || 'Week 1';
+      });
+
+      // Local state synchronizations
       useEffect(() => {
-        async function fetchInitialData() {
-          try {
-            // Load Teachers
-            let { data: dbTeachers, error: tErr } = await supabaseClient.from('hikma_teachers').select('*');
-            if (tErr) throw tErr;
-            if (dbTeachers && dbTeachers.length > 0) {
-              setTeachers(dbTeachers);
-            } else {
-              setTeachers(SEED_TEACHERS);
-            }
+        localStorage.setItem('hikma_teachers_roster_html', JSON.stringify(teachers));
+      }, [teachers]);
 
-            // Load Plans
-            let { data: dbPlans, error: pErr } = await supabaseClient.from('hikma_plans').select('*').order('created_at', { ascending: false });
-            if (pErr) throw pErr;
-            if (dbPlans) {
-              setPlans(dbPlans);
-            } else {
-              setPlans(SEED_PLANS);
-            }
-          } catch (e) {
-            console.warn("Supabase fetch failed, loading local system database backup:", e);
-            const cachedT = localStorage.getItem('hikma_teachers_roster_html');
-            const cachedP = localStorage.getItem('hikma_lessons_plans_html');
-            setTeachers(cachedT ? JSON.parse(cachedT) : SEED_TEACHERS);
-            setPlans(cachedP ? JSON.parse(cachedP) : SEED_PLANS);
-          }
+      useEffect(() => {
+        localStorage.setItem('hikma_lessons_plans_html', JSON.stringify(plans));
+      }, [plans]);
+
+      useEffect(() => {
+        localStorage.setItem('hikma_admin_auth', String(isAdminLoggedIn));
+      }, [isAdminLoggedIn]);
+
+      useEffect(() => {
+        if (loggedInTeacher) {
+          localStorage.setItem('hikma_logged_in_teacher', JSON.stringify(loggedInTeacher));
+        } else {
+          localStorage.removeItem('hikma_logged_in_teacher');
         }
-        fetchInitialData();
-      }, []);
+      }, [loggedInTeacher]);
 
-      // Backup local cache syncs
-      useEffect(() => { if (teachers.length > 0) localStorage.setItem('hikma_teachers_roster_html', JSON.stringify(teachers)); }, [teachers]);
-      useEffect(() => { if (plans.length > 0) localStorage.setItem('hikma_lessons_plans_html', JSON.stringify(plans)); }, [plans]);
-      useEffect(() => { localStorage.setItem('hikma_admin_auth', String(isAdminLoggedIn)); }, [isAdminLoggedIn]);
-      useEffect(() => { localStorage.setItem('hikma_current_month_html', globalMonth); }, [globalMonth]);
-      useEffect(() => { localStorage.setItem('hikma_current_week_html', globalWeek); }, [globalWeek]);
+      useEffect(() => {
+        localStorage.setItem('hikma_current_week_html', currentWeek);
+      }, [currentWeek]);
 
-      const handleAddPlan = async (newPlan) => {
+      const handleAddPlan = (newPlan) => {
         setPlans((prev) => [newPlan, ...prev]);
-        try { await supabaseClient.from('hikma_plans').insert([newPlan]); } catch(e) { console.error(e); }
       };
 
-      const handleUpdatePlan = async (updatedPlan) => {
-        setPlans((prev) => prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p)));
-        try { await supabaseClient.from('hikma_plans').update(updatedPlan).eq('id', updatedPlan.id); } catch(e) { console.error(e); }
+      const handleUpdatePlan = (updatedPlan) => {
+        setPlans((prev) =>
+          prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p))
+        );
       };
 
-      const handleDeletePlan = async (id) => {
+      const handleDeletePlan = (id) => {
         setPlans((prev) => prev.filter((p) => p.id !== id));
-        try { await supabaseClient.from('hikma_plans').delete().eq('id', id); } catch(e) { console.error(e); }
       };
 
-      const handleAddTeacher = async (name) => {
-        const newTeach = { id: 'teach_' + Date.now(), teacher_name: name };
+      const handleAddTeacher = (name, customId, password) => {
+        const newTeach = {
+          id: 'teach_' + Date.now(),
+          teacher_id: customId,
+          teacher_name: name,
+          passcode: password
+        };
         setTeachers((prev) => [...prev, newTeach]);
-        try { await supabaseClient.from('hikma_teachers').insert([newTeach]); } catch(e) { console.error(e); }
       };
 
-      const handleDeleteTeacher = async (id) => {
+      const handleDeleteTeacher = (id) => {
         setTeachers((prev) => prev.filter((t) => t.id !== id));
-        try { await supabaseClient.from('hikma_teachers').delete().eq('id', id); } catch(e) { console.error(e); }
+      };
+
+      const handleAdminLogin = (passcode) => {
+        if (passcode === 'hikma123') {
+          setIsAdminLoggedIn(true);
+          return true;
+        }
+        return false;
+      };
+
+      const handleTeacherLogin = (userId, password) => {
+        const matched = teachers.find(
+          (t) => t.teacher_id.toLowerCase() === userId.trim().toLowerCase() && t.passcode === password
+        );
+        if (matched) {
+          setLoggedInTeacher(matched);
+          return true;
+        }
+        return false;
+      };
+
+      const handleLogout = () => {
+        setIsAdminLoggedIn(false);
+        setLoggedInTeacher(null);
+        setActiveTab('teacher');
       };
 
       return (
         <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans pb-12">
-          <header className="bg-slate-900 border-b border-slate-800 text-white shadow-xl no-print mt-4 rounded-2xl mx-4 px-4 py-4">
+          {/* HEADER HEADER */}
+          <header className="bg-slate-900 border-b border-slate-800 text-white shadow-xl no-print mt-4 md:mt-2 transition-all duration-300 rounded-2xl mx-4 sm:mx-6 md:mx-8 px-4 py-3 md:py-4">
             <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
               <div className="flex items-center space-x-4">
                 <div className="bg-white p-2 rounded-xl shadow-md shrink-0 flex items-center justify-center">
                   <Logo className="h-[56px] w-[56px]" />
                 </div>
                 <div className="text-left">
-                  <h1 className="text-lg sm:text-xl font-bold font-display tracking-tight text-white">Hikma International School</h1>
-                  <p className="text-xs sm:text-sm text-sky-400 font-medium mt-1">Weekly Lesson Plan Portal • স্কুল পোর্টাল</p>
+                  <h1 className="text-lg sm:text-xl font-bold font-display tracking-tight leading-none text-white hover:text-sky-400 transition-colors">
+                    Hikma International School
+                  </h1>
+                  <p className="text-xs sm:text-sm text-sky-450 font-medium mt-1">
+                    Weekly Lesson Plan Portal • স্কুল পোর্টাল
+                  </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
                 <button
                   onClick={() => setActiveTab('teacher')}
-                  className={`flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl font-semibold text-sm cursor-pointer flex-1 sm:flex-initial ${activeTab === 'teacher' ? 'bg-sky-600 text-white shadow-lg' : 'bg-slate-800 text-slate-300'}`}
+                  className={`flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all min-h-[44px] cursor-pointer flex-1 sm:flex-initial ${
+                    activeTab === 'teacher'
+                      ? 'bg-sky-600 text-white shadow-lg border border-sky-500'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
                 >
-                  <BookOpenIcon /> <span>Teacher Portal</span>
+                  <BookOpenIcon />
+                  <span>Teacher Portal</span>
                 </button>
 
-                {isAdminLoggedIn ? (
+                {isAdminLoggedIn || loggedInTeacher ? (
                   <div className="flex items-center gap-3 flex-1 sm:flex-initial">
+                    {isAdminLoggedIn && (
+                      <button
+                        onClick={() => setActiveTab('admin')}
+                        className={`flex-1 sm:flex-initial flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all min-h-[44px] cursor-pointer ${
+                          activeTab === 'admin'
+                            ? 'bg-rose-600 text-white shadow-lg border border-rose-500'
+                            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                        }`}
+                      >
+                        <ShieldIcon />
+                        <span>Headmaster Office</span>
+                      </button>
+                    )}
+
                     <button
-                      onClick={() => setActiveTab('admin')}
-                      className={`flex-1 sm:flex-initial flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl font-semibold text-sm cursor-pointer ${activeTab === 'admin' ? 'bg-rose-600 text-white shadow-lg' : 'bg-slate-800 text-slate-300'}`}
+                      onClick={handleLogout}
+                      title="Log Out Profiles"
+                      className="px-4 py-2.5 bg-slate-800 hover:bg-rose-950/40 text-rose-400 font-bold rounded-xl text-sm transition-all border border-slate-700 min-h-[44px] flex items-center justify-center gap-1.5 cursor-pointer"
                     >
-                      <ShieldIcon /> <span>Headmaster Office</span>
+                      <LogOutIcon />
+                      <span className="text-xs sm:text-sm">Sign Out</span>
                     </button>
-                    <button onClick={() => { setIsAdminLoggedIn(false); setActiveTab('teacher'); }} className="p-2.5 bg-slate-800 text-red-400 rounded-xl cursor-pointer"><LogOutIcon /></button>
                   </div>
                 ) : (
-                  <button onClick={() => setActiveTab('admin')} className="flex-1 sm:flex-initial bg-slate-800 text-slate-300 flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl font-semibold text-sm cursor-pointer"><ShieldIcon /> <span>Headmaster Office</span></button>
+                  <button
+                    onClick={() => setActiveTab('admin')}
+                    className={`flex-1 sm:flex-initial flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all min-h-[44px] cursor-pointer ${
+                      activeTab === 'admin'
+                        ? 'bg-rose-600 text-white'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    <ShieldIcon />
+                    <span>Headmaster Office</span>
+                  </button>
                 )}
               </div>
             </div>
@@ -252,63 +379,93 @@
           <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {activeTab === 'teacher' ? (
               <TeacherPortal
+                loggedInTeacher={loggedInTeacher}
+                onTeacherLogin={handleTeacherLogin}
                 teachersList={teachers}
                 lessonPlans={plans}
                 onAddPlan={handleAddPlan}
                 onUpdatePlan={handleUpdatePlan}
                 onDeletePlan={handleDeletePlan}
-                globalMonth={globalMonth}
-                globalWeek={globalWeek}
-                onGlobalMonthChange={setGlobalMonth}
-                onGlobalWeekChange={setGlobalWeek}
+                currentWeek={currentWeek}
+                onCurrentWeekChange={setCurrentWeek}
               />
             ) : (
               <HeadmasterPortal
                 isAdminLoggedIn={isAdminLoggedIn}
                 teachersList={teachers}
                 lessonPlans={plans}
-                onLogin={(pass) => { if (pass === 'hikma123') { setIsAdminLoggedIn(true); return true; } return false; }}
+                onLogin={handleAdminLogin}
                 onAddTeacher={handleAddTeacher}
                 onDeleteTeacher={handleDeleteTeacher}
-                globalMonth={globalMonth}
-                globalWeek={globalWeek}
-                onGlobalMonthChange={setGlobalMonth}
-                onGlobalWeekChange={setGlobalWeek}
+                currentWeek={currentWeek}
+                onCurrentWeekChange={setCurrentWeek}
               />
             )}
           </main>
-          <footer className="w-full text-center py-6 mt-12 border-t text-slate-500 font-semibold text-xs no-print">
-            <div className="max-w-7xl mx-auto"><span>Developed by Chinmoy</span></div>
+
+          <footer className="w-full text-center py-6 mt-12 border-t border-slate-200 text-slate-500 font-semibold text-xs sm:text-sm no-print">
+            <div className="max-w-7xl mx-auto px-4 flex justify-center items-center">
+              <span>Developed by Chinmoy</span>
+            </div>
           </footer>
         </div>
       );
     }
 
-    function TeacherPortal({ teachersList, lessonPlans, onAddPlan, onUpdatePlan, onDeletePlan, globalMonth, globalWeek, onGlobalMonthChange, onGlobalWeekChange }) {
+    // TEACHER PORTAL SUB-COMPONENT
+    function TeacherPortal({ loggedInTeacher, onTeacherLogin, teachersList, lessonPlans, onAddPlan, onUpdatePlan, onDeletePlan, currentWeek, onCurrentWeekChange }) {
+      const [uIdInput, setUIdInput] = useState('');
+      const [uPassInput, setUPassInput] = useState('');
+      const [loginError, setLoginError] = useState('');
+
       const [selectedTeacher, setSelectedTeacher] = useState('');
       const [selectedClass, setSelectedClass] = useState(CLASSES[0]);
       const [section, setSection] = useState(SECTIONS[0]);
       const [shift, setShift] = useState('Morning');
       const [subjectName, setSubjectName] = useState('');
       const [classDate, setClassDate] = useState(() => new Date().toISOString().split('T')[0]);
-      
-      const [monthName, setMonthName] = useState(globalMonth);
-      const [weekNumber, setWeekNumber] = useState(globalWeek);
-      
+      const [weekNumber, setWeekNumber] = useState(currentWeek);
       const [classWork, setClassWork] = useState('');
       const [hasHomework, setHasHomework] = useState(false);
       const [homeworkText, setHomeworkText] = useState('');
 
       const [editingPlanId, setEditingPlanId] = useState(null);
       const [planIdToDelete, setPlanIdToDelete] = useState(null);
+
       const [successMsg, setSuccessMsg] = useState('');
       const [errorMsg, setErrorMsg] = useState('');
       const [searchQuery, setSearchQuery] = useState('');
       const [filterClass, setFilterClass] = useState('All');
+
       const [currentPage, setCurrentPage] = useState(1);
 
-      useEffect(() => { if (!editingPlanId) { setMonthName(globalMonth); setWeekNumber(globalWeek); } }, [globalMonth, globalWeek, editingPlanId]);
-      useEffect(() => { setCurrentPage(1); }, [filterClass, searchQuery, globalMonth, globalWeek]);
+      // Lock current teacher profile details if logged in
+      useEffect(() => {
+        if (loggedInTeacher) {
+          setSelectedTeacher(loggedInTeacher.teacher_name);
+        } else {
+          setSelectedTeacher('');
+        }
+      }, [loggedInTeacher]);
+
+      useEffect(() => {
+        if (!editingPlanId) {
+          setWeekNumber(currentWeek);
+        }
+      }, [currentWeek, editingPlanId]);
+
+      useEffect(() => {
+        setCurrentPage(1);
+      }, [filterClass, searchQuery, currentWeek]);
+
+      const handleLoginSubmit = (e) => {
+        e.preventDefault();
+        setLoginError('');
+        const success = onTeacherLogin(uIdInput, uPassInput);
+        if (!success) {
+          setLoginError('Invalid Username ID or Password passcode sequence.');
+        }
+      };
 
       const handleEditClick = (plan) => {
         setEditingPlanId(plan.id);
@@ -318,9 +475,9 @@
         setShift(plan.shift);
         setSubjectName(plan.subject_name);
         setClassDate(plan.lesson_date);
-        setMonthName(plan.month_name || 'January');
         setWeekNumber(plan.week_number);
         setClassWork(plan.class_work);
+        
         if (plan.homework && plan.homework !== 'No Homework') {
           setHasHomework(true);
           setHomeworkText(plan.homework);
@@ -328,13 +485,36 @@
           setHasHomework(false);
           setHomeworkText('');
         }
+
+        setSuccessMsg('Lesson plan loaded into form. Editing active.');
+        setErrorMsg('');
         window.scrollTo({ top: 300, behavior: 'smooth' });
+      };
+
+      const handleCancelEdit = () => {
+        setEditingPlanId(null);
+        setSubjectName('');
+        setClassWork('');
+        setHasHomework(false);
+        setHomeworkText('');
+        setSuccessMsg('');
       };
 
       const handleFormSubmit = (e) => {
         e.preventDefault();
-        if (!selectedTeacher || !subjectName.trim() || !classWork.trim()) {
-          setErrorMsg('Please complete all required entries.');
+        setErrorMsg('');
+        setSuccessMsg('');
+
+        if (!selectedTeacher) {
+          setErrorMsg('Required: Choose Teacher Name.');
+          return;
+        }
+        if (!subjectName.trim()) {
+          setErrorMsg('Required: Enter subject name.');
+          return;
+        }
+        if (!classWork.trim()) {
+          setErrorMsg('Required: Detail class activity.');
           return;
         }
 
@@ -346,7 +526,6 @@
           shift,
           subject_name: subjectName.trim(),
           lesson_date: classDate,
-          month_name: monthName,
           week_number: weekNumber,
           class_work: classWork.trim(),
           homework: hasHomework && homeworkText.trim() ? homeworkText.trim() : 'No Homework',
@@ -355,148 +534,235 @@
 
         if (editingPlanId) {
           onUpdatePlan(payload);
-          setSuccessMsg('Lesson plan updated successfully in Supabase!');
+          setSuccessMsg('Success: Lesson plan updated instantly!');
           setEditingPlanId(null);
         } else {
           onAddPlan(payload);
-          setSuccessMsg('Lesson plan saved to cloud database!');
+          setSuccessMsg('Success: Lesson plan submitted!');
         }
-        setSubjectName(''); setClassWork(''); setHasHomework(false); setHomeworkText('');
+
+        setSubjectName('');
+        setClassWork('');
+        setHasHomework(false);
+        setHomeworkText('');
       };
 
-      const filteredPlans = useMemo(() => {
+      const filteredTeacherPlans = useMemo(() => {
         return lessonPlans.filter(plan => {
-          const matchSearch = plan.subject_name.toLowerCase().includes(searchQuery.toLowerCase()) || plan.teacher_name.toLowerCase().includes(searchQuery.toLowerCase());
+          const matchSearch = 
+            plan.subject_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            plan.teacher_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            plan.class_work.toLowerCase().includes(searchQuery.toLowerCase());
           const matchClass = filterClass === 'All' || plan.class_name === filterClass;
-          const matchDateFilter = (plan.month_name || 'January') === globalMonth && plan.week_number === globalWeek;
-          return matchSearch && matchClass && matchDateFilter;
+          const matchTab = plan.week_number === currentWeek;
+          return matchSearch && matchClass && matchTab;
         });
-      }, [lessonPlans, searchQuery, filterClass, globalMonth, globalWeek]);
+      }, [lessonPlans, searchQuery, filterClass, currentWeek]);
+
+      const cappedPlans = useMemo(() => {
+        return filteredTeacherPlans.slice(0, 100);
+      }, [filteredTeacherPlans]);
+
+      const totalPages = useMemo(() => {
+        return Math.max(1, Math.ceil(cappedPlans.length / 10));
+      }, [cappedPlans]);
 
       const paginatedPlans = useMemo(() => {
-        const start = (currentPage - 1) * 10;
-        return filteredPlans.slice(start, start + 10);
-      }, [filteredPlans, currentPage]);
+        const startIdx = (currentPage - 1) * 10;
+        return cappedPlans.slice(startIdx, startIdx + 10);
+      }, [cappedPlans, currentPage]);
+
+      // Guard Layer: If no teacher logged in, prompt workspace lock screen
+      if (!loggedInTeacher) {
+        return (
+          <div className="max-w-md w-full mx-auto bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 mt-10 text-left space-y-6 shadow-xl animate-fade-in">
+            <h3 className="text-lg font-bold font-display text-slate-900 text-center flex justify-center items-center gap-1.5"><KeyIcon /> Teacher Security Entrance</h3>
+            {loginError && <p className="text-xs text-rose-700 bg-rose-50 p-2.5 rounded-xl text-center font-semibold">{loginError}</p>}
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold block mb-1 text-slate-600">Teacher ID / আইডি নম্বর</label>
+                <input type="text" value={uIdInput} onChange={e => setUIdInput(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm" placeholder="e.g. t101" required />
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-1 text-slate-600">Password / পাসওয়ার্ড</label>
+                <input type="password" value={uPassInput} onChange={e => setUPassInput(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm" placeholder="••••••••" required />
+              </div>
+              <button type="submit" className="w-full bg-sky-600 hover:bg-sky-700 font-bold text-white py-3 rounded-xl text-xs sm:text-sm tracking-wide transition-all">
+                Enter Teacher Dashboard
+              </button>
+            </form>
+            <div className="bg-sky-50 p-4 border-l-4 border-sky-400 text-xs text-sky-950 leading-relaxed">
+              💡 <b>Default Seed Credentials:</b> Try ID: <code className="bg-white px-1 py-0.5 rounded border">t101</code> and Password: <code className="bg-white px-1 py-0.5 rounded border">hikma11</code> to access Mustafa's roster profiles.
+            </div>
+          </div>
+        );
+      }
 
       return (
-        <div className="space-y-8 text-left animate-fade-in">
-          <div className="bg-slate-900 rounded-3xl p-6 text-white shadow-xl">
-            <h2 className="text-xl font-bold font-display flex items-center gap-2"><BookOpenIcon /><span>Teacher Dashboard Portal</span></h2>
-            <p className="text-sm text-slate-300 mt-2">Log curriculum targets and student assignments. Data is persistently hosted inside Supabase database infrastructure.</p>
+        <div className="space-y-8 animate-fade-in text-left">
+          {/* Intro Banner */}
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 md:p-8 text-white shadow-xl">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="space-y-2 leading-relaxed">
+                <h2 className="text-xl sm:text-2xl font-bold font-display tracking-tight text-white flex items-center gap-2">
+                  <BookOpenIcon />
+                  <span>Welcome back, {loggedInTeacher.teacher_name}!</span>
+                </h2>
+                <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-2xl">
+                  Log daily educational progress, syllabus tasks, and student homework records. Logged plans lock onto your explicit workspace safely automatically.
+                </p>
+                <p className="text-xs text-sky-400 font-bold font-display pt-1">
+                  ID Token Active: {loggedInTeacher.teacher_id.toUpperCase()} • Developed by Chinmoy
+                </p>
+              </div>
+              <div className="text-xs sm:text-sm bg-emerald-950/80 border border-emerald-500/30 py-2 px-4 rounded-xl font-semibold text-emerald-400 shrink-0">
+                Authenticated Account
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 bg-white rounded-3xl border p-6 space-y-6">
-              <h3 className="text-base font-bold text-slate-900 border-b pb-2">{editingPlanId ? 'Edit Existing Lesson Entry' : 'Record Classroom Lesson Plan'}</h3>
-              <form onSubmit={handleFormSubmit} className="space-y-4">
+            <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6">
+              <div className="border-b border-slate-100 pb-4 flex justify-between items-center">
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold font-display text-slate-900">
+                    {editingPlanId ? 'Edit Existing Lesson Plan' : 'Record Classroom Activity'}
+                  </h3>
+                </div>
+                {editingPlanId && (
+                  <button onClick={handleCancelEdit} className="text-xs font-semibold bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg">Cancel</button>
+                )}
+              </div>
+
+              <form onSubmit={handleFormSubmit} className="space-y-5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Teacher</label>
-                    <select value={selectedTeacher} onChange={e => setSelectedTeacher(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11" required>
-                      <option value="">-- Choose Teacher --</option>
-                      {teachersList.map(t => <option key={t.id} value={t.teacher_name}>{t.teacher_name}</option>)}
-                    </select>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Teacher Identity</label>
+                    <input 
+                      type="text" 
+                      value={selectedTeacher} 
+                      disabled 
+                      className="w-full bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl text-sm h-11 text-slate-500 font-bold cursor-not-allowed"
+                    />
                   </div>
+
                   <div>
                     <label className="text-xs font-semibold text-slate-600 block mb-1">Class</label>
-                    <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11">{CLASSES.map(c => <option key={c} value={c}>Class {c}</option>)}</select>
+                    <select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-sm h-11 cursor-pointer">
+                      {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
+                    </select>
                   </div>
+
                   <div>
                     <label className="text-xs font-semibold text-slate-600 block mb-1">Section</label>
-                    <select value={section} onChange={e => setSection(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11">{SECTIONS.map(s => <option key={s} value={s}>Section {s}</option>)}</select>
+                    <select value={section} onChange={e => setSection(e.target.value)} className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-sm h-11 cursor-pointer">
+                      {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
+                    </select>
                   </div>
+
                   <div>
                     <label className="text-xs font-semibold text-slate-600 block mb-1">Shift</label>
-                    <select value={shift} onChange={e => setShift(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11">{SHIFTS.map(s => <option key={s} value={s}>{s} Shift</option>)}</select>
+                    <select value={shift} onChange={e => setShift(e.target.value)} className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-sm h-11 cursor-pointer">
+                      {SHIFTS.map(sh => <option key={sh} value={sh}>{sh} Shift</option>)}
+                    </select>
                   </div>
+
                   <div>
                     <label className="text-xs font-semibold text-slate-600 block mb-1">Subject</label>
-                    <input type="text" value={subjectName} onChange={e => setSubjectName(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11" required />
+                    <input type="text" value={subjectName} onChange={e => setSubjectName(e.target.value)} className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-sm h-11" required />
                   </div>
+
                   <div>
                     <label className="text-xs font-semibold text-slate-600 block mb-1">Date</label>
-                    <input type="date" value={classDate} onChange={e => setClassDate(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11" required />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border">
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">1. Choose Targeted Month</label>
-                    <select value={monthName} onChange={e => setMonthName(e.target.value)} className="w-full bg-white border px-3 py-2 rounded-xl text-sm h-11 font-medium shadow-sm">
-                      {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-1">2. Choose Monthly Week</label>
-                    <select value={weekNumber} onChange={e => setWeekNumber(e.target.value)} className="w-full bg-white border px-3 py-2 rounded-xl text-sm h-11 font-medium shadow-sm">
-                      {WEEKS_IN_MONTH.map(w => <option key={w} value={w}>{w} (4-Week Cycle)</option>)}
-                    </select>
+                    <input type="date" value={classDate} onChange={e => setClassDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-sm h-11" required />
                   </div>
                 </div>
 
                 <div>
+                  <label className="text-xs font-semibold text-slate-600 block mb-1">Syllabus Week</label>
+                  <select value={weekNumber} onChange={e => setWeekNumber(e.target.value)} className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-sm h-11 cursor-pointer">
+                    {WEEKS.map(wk => <option key={wk} value={wk}>Syllabus: {wk}</option>)}
+                  </select>
+                </div>
+
+                <div>
                   <label className="text-xs font-semibold text-slate-600 block mb-1">Class Work Details</label>
-                  <textarea value={classWork} onChange={e => setClassWork(e.target.value)} className="w-full bg-slate-50 border p-3 rounded-xl text-sm min-h-[90px]" required />
+                  <textarea value={classWork} onChange={e => setClassWork(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-3 rounded-2xl text-sm min-h-[100px]" required />
                 </div>
 
-                <div className="space-y-2">
-                  <div onClick={() => setHasHomework(!hasHomework)} className="flex items-center space-x-3 bg-slate-50 p-3 rounded-xl border cursor-pointer select-none">
-                    <input type="checkbox" checked={hasHomework} onChange={e => setHasHomework(e.target.checked)} className="h-4 w-4" />
-                    <span className="text-sm font-semibold">Assign Home Tasks?</span>
+                <div className="space-y-3">
+                  <div onClick={() => setHasHomework(!hasHomework)} className="flex items-center space-x-3 bg-slate-50 p-4 rounded-xl border border-slate-200 cursor-pointer select-none">
+                    <input type="checkbox" checked={hasHomework} onChange={e => setHasHomework(e.target.checked)} className="h-5 w-5" />
+                    <span className="text-sm font-semibold">Assign Student Homework?</span>
                   </div>
-                  {hasHomework && <textarea value={homeworkText} onChange={e => setHomeworkText(e.target.value)} className="w-full bg-slate-50 border p-3 rounded-xl text-sm min-h-[60px]" placeholder="Homework details..." />}
+
+                  {hasHomework && (
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 block mb-1">Homework Details</label>
+                      <textarea value={homeworkText} onChange={e => setHomeworkText(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-3 rounded-2xl text-sm min-h-[70px]" />
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex justify-between items-center pt-2">
-                  <div className="flex-grow mr-4">
-                    {successMsg && <div className="text-emerald-800 bg-emerald-50 text-xs p-2.5 rounded-xl">{successMsg}</div>}
-                    {errorMsg && <div className="text-rose-800 bg-rose-50 text-xs p-2.5 rounded-xl">{errorMsg}</div>}
+                <div className="flex justify-between items-center pt-3">
+                  <div className="flex-grow">
+                    {successMsg && <div className="text-emerald-800 bg-emerald-50 text-xs p-3 rounded-xl">{successMsg}</div>}
+                    {errorMsg && <div className="text-rose-800 bg-rose-50 text-xs p-3 rounded-xl">{errorMsg}</div>}
                   </div>
-                  <button type="submit" className="bg-slate-900 text-white font-bold py-2.5 px-5 rounded-xl text-sm shrink-0">
-                    {editingPlanId ? 'Save Updates' : 'Publish Plan'}
+                  <button type="submit" className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-xl text-sm tracking-wide cursor-pointer">
+                    {editingPlanId ? 'Save Update' : 'Submit Plan'}
                   </button>
                 </div>
               </form>
             </div>
 
-            <div className="bg-white p-6 rounded-3xl border space-y-4">
-              <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-1.5"><BookOpenIcon /> Portal Information</h4>
-              <p className="text-xs text-slate-600 leading-relaxed">Your application points natively to Supabase server references. Every update updates both table indexes and live browser caches instantaneously.</p>
-              <div className="bg-sky-50 text-sky-950 p-4 rounded-xl text-xs font-medium">✨ Calendar tracking runs strictly in localized 4-week monthly bounds rather than continuous year numbers.</div>
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 space-y-4">
+              <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-1.5"><BookOpenIcon /> Lesson Guidelines</h4>
+              <ul className="space-y-3 text-xs sm:text-sm text-slate-600 pl-1 leading-relaxed">
+                <li><span className="text-sky-500 font-bold">•</span> Profile locking blocks typo errors from list selectors.</li>
+                <li><span className="text-sky-500 font-bold">•</span> Submissions instantly update databases.</li>
+                <li><span className="text-sky-500 font-bold">•</span> Correct Week number matches ensure proper audit.</li>
+              </ul>
+              <div className="bg-sky-50 p-4 rounded-xl text-xs text-sky-900 leading-relaxed">
+                🚀 Dynamic reports compile straight to PDF when verification rules pass under Admin checker portals.
+              </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-3xl border p-6 space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between border-b pb-4 gap-4">
-              <h3 className="text-base font-bold text-slate-900">Live Lesson Directory</h3>
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900">Live Lesson Directory</h3>
+              </div>
               <div className="flex gap-2">
-                <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search..." className="border px-3 py-1.5 rounded-xl text-xs bg-slate-50 w-44 h-10" />
-                <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="border rounded-xl text-xs bg-slate-50 h-10">
+                <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search..." className="border px-3 py-1.5 rounded-xl text-xs sm:text-sm bg-slate-50 w-44 h-10" />
+                <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="border rounded-xl text-xs sm:text-sm bg-slate-50 h-10">
                   <option value="All">All Classes</option>
-                  {CLASSES.map(c => <option key={c} value={c}>Class {c}</option>)}
+                  {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
                 </select>
               </div>
             </div>
 
-            {/* Active Time Horizon Banner */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900 p-4 rounded-2xl text-white shadow-md">
+            {/* Active School Week Selector */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-150 no-print">
               <div className="flex items-center space-x-2">
-                <span className="text-sm font-semibold text-slate-300">Viewing Records for:</span>
-                <span className="bg-sky-600 text-white text-xs font-bold px-3 py-1 rounded-md">{globalMonth} — {globalWeek}</span>
+                <span className="text-sm font-bold text-slate-800">Viewing plans for:</span>
+                <span className="bg-sky-100 text-sky-800 text-xs font-black px-2.5 py-1 rounded-lg border border-sky-200">{currentWeek}</span>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center space-x-1">
-                  <span className="text-xs text-slate-400 font-medium">Month:</span>
-                  <select value={globalMonth} onChange={e => onGlobalMonthChange(e.target.value)} className="bg-slate-800 border border-slate-700 rounded-lg p-1 text-xs text-white cursor-pointer">
-                    {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <span className="text-xs text-slate-400 font-medium">Week:</span>
-                  <select value={globalWeek} onChange={e => onGlobalWeekChange(e.target.value)} className="bg-slate-800 border border-slate-700 rounded-lg p-1 text-xs text-white cursor-pointer">
-                    {WEEKS_IN_MONTH.map(w => <option key={w} value={w}>{w}</option>)}
-                  </select>
-                </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-505 whitespace-nowrap">Active School Week:</span>
+                <select
+                  value={currentWeek}
+                  onChange={(e) => onCurrentWeekChange(e.target.value)}
+                  className="bg-white border rounded-xl px-3 py-1.5 text-xs sm:text-sm font-bold text-slate-800 focus:outline-none cursor-pointer"
+                >
+                  {WEEKS.map((wk) => (
+                    <option key={wk} value={wk}>
+                      {wk}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -504,8 +770,8 @@
               <table className="w-full text-left text-sm border-collapse">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="p-4 font-bold border-b">Schedule</th>
-                    <th className="p-4 font-bold border-b">Subject/Class</th>
+                    <th className="p-4 font-bold border-b whitespace-nowrap">Schedule</th>
+                    <th className="p-4 font-bold border-b whitespace-nowrap">Subject Key</th>
                     <th className="p-4 font-bold border-b">Class Work Details</th>
                     <th className="p-4 font-bold border-b">Homework Task</th>
                     <th className="p-4 font-bold border-b text-center">Actions</th>
@@ -513,31 +779,48 @@
                 </thead>
                 <tbody className="divide-y">
                   {paginatedPlans.length === 0 ? (
-                    <tr><td colSpan="5" className="p-8 text-center text-slate-400">No matching plans on file for {globalMonth}, {globalWeek}.</td></tr>
+                    <tr>
+                      <td colSpan="5" className="p-8 text-center text-slate-400 font-medium">
+                        No plans recorded for this week.
+                      </td>
+                    </tr>
                   ) : (
                     paginatedPlans.map(plan => (
-                      <tr key={plan.id} className="hover:bg-slate-50/40">
+                      <tr key={plan.id} className="hover:bg-slate-50/20">
                         <td className="p-4">
                           <b>{plan.lesson_date}</b>
-                          <div className="text-xs text-slate-500 mt-0.5">By: {plan.teacher_name}</div>
+                          <div className="text-xs text-slate-505 font-semibold mt-1">
+                            Teacher: <b>{plan.teacher_name}</b> | {plan.week_number}
+                          </div>
                         </td>
                         <td className="p-4">
-                          <span className="bg-sky-50 text-sky-800 text-[11px] font-bold px-2 py-0.5 rounded border">Class {plan.class_name} ({plan.section})</span>
+                          <span className="bg-sky-50 text-sky-800 text-[11px] font-bold px-2 py-1 rounded-md border">
+                            Class {plan.class_name} ({plan.section})
+                          </span>
                           <div className="font-bold text-slate-700 mt-1">{plan.subject_name}</div>
                         </td>
-                        <td className="p-4 text-xs max-w-sm whitespace-pre-wrap">{plan.class_work}</td>
-                        <td className="p-4 text-xs italic text-slate-700">{plan.homework === 'No Homework' ? <span className="text-slate-400">None</span> : plan.homework}</td>
+                        <td className="p-4 whitespace-pre-wrap max-w-sm text-xs sm:text-sm">{plan.class_work}</td>
+                        <td className="p-4">
+                          {plan.homework === 'No Homework' ? (
+                            <span className="text-slate-400 italic text-xs">No tasks</span>
+                          ) : (
+                            <div className="border-l-3 border-sky-600 print:border-l-0 bg-slate-50 p-2 text-xs italic rounded-r text-slate-700 shadow-none">
+                              {plan.homework}
+                            </div>
+                          )}
+                        </td>
                         <td className="p-4 text-center">
                           <div className="inline-flex gap-2">
                             {planIdToDelete === plan.id ? (
-                              <div className="flex items-center gap-1">
-                                <button onClick={() => { onDeletePlan(plan.id); setPlanIdToDelete(null); }} className="bg-rose-600 text-white px-2 py-0.5 rounded text-xs">Confirm</button>
-                                <button onClick={() => setPlanIdToDelete(null)} className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-xs">Cancel</button>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-bold text-rose-600">Delete?</span>
+                                <button onClick={() => { onDeletePlan(plan.id); setPlanIdToDelete(null); }} className="bg-rose-600 text-white font-bold px-2 py-1 rounded text-xs cursor-pointer">Yes</button>
+                                <button onClick={() => setPlanIdToDelete(null)} className="bg-slate-200 text-slate-700 font-bold px-2 py-1 rounded text-xs cursor-pointer">No</button>
                               </div>
                             ) : (
                               <>
-                                <button onClick={() => handleEditClick(plan)} className="text-sky-500 bg-sky-50 p-1.5 rounded-lg"><EditIcon /></button>
-                                <button onClick={() => setPlanIdToDelete(plan.id)} className="text-rose-500 bg-rose-50 p-1.5 rounded-lg"><TrashIcon /></button>
+                                <button onClick={() => handleEditClick(plan)} disabled={plan.teacher_name !== loggedInTeacher.teacher_name} className={`p-1.5 rounded-xl ${plan.teacher_name === loggedInTeacher.teacher_name ? 'text-sky-500 bg-sky-50 hover:text-sky-700 cursor-pointer' : 'text-slate-300 bg-slate-100 cursor-not-allowed'}`} title="Only edit your own reports."><EditIcon /></button>
+                                <button onClick={() => setPlanIdToDelete(plan.id)} disabled={plan.teacher_name !== loggedInTeacher.teacher_name} className={`p-1.5 rounded-xl ${plan.teacher_name === loggedInTeacher.teacher_name ? 'text-rose-500 bg-rose-50 hover:text-rose-700 cursor-pointer' : 'text-slate-300 bg-slate-100 cursor-not-allowed'}`} title="Only remove your own reports."><TrashIcon /></button>
                               </>
                             )}
                           </div>
@@ -548,160 +831,362 @@
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {cappedPlans.length > 0 && (
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 no-print">
+                <span className="text-xs sm:text-sm text-slate-500 font-medium">
+                  Showing <b>{(currentPage - 1) * 10 + 1}–{Math.min(cappedPlans.length, currentPage * 10)}</b> of <b>{cappedPlans.length}</b> plans 
+                  {cappedPlans.length >= 100 && <span className="text-amber-600 font-semibold"> (Capped at 100 logs)</span>}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    className="px-3.5 py-1.5 rounded-lg border text-xs sm:text-sm font-bold bg-white text-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs sm:text-sm font-semibold text-slate-600 px-2">
+                    Page <b>{currentPage}</b> of <b>{totalPages}</b>
+                  </span>
+                  <button
+                    type="button"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    className="px-3.5 py-1.5 rounded-lg border text-xs sm:text-sm font-bold bg-white text-slate-705 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       );
     }
 
-    function HeadmasterPortal({ isAdminLoggedIn, teachersList, lessonPlans, onLogin, onAddTeacher, onDeleteTeacher, globalMonth, globalWeek, onGlobalMonthChange, onGlobalWeekChange }) {
-      const [passInput, setPassInput] = useState('');
+    // HEADMASTER PORTAL SUB-COMPONENT
+    function HeadmasterPortal({ isAdminLoggedIn, teachersList, lessonPlans, onLogin, onAddTeacher, onDeleteTeacher, currentWeek, onCurrentWeekChange }) {
+      const [passwordInput, setPasswordInput] = useState('');
       const [loginError, setLoginError] = useState('');
-      const [officeTab, setOfficeTab] = useState('routine');
-      const [newTeacherName, setNewTeacherName] = useState('');
-      const [teacherIdToDelete, setTeacherIdToDelete] = useState(null);
+      const [activeOfficeTab, setActiveOfficeTab] = useState('routine');
 
       const [targetClass, setTargetClass] = useState('');
       const [targetSection, setTargetSection] = useState('');
       const [targetShift, setTargetShift] = useState('');
-      const [targetMonth, setTargetMonth] = useState(globalMonth);
-      const [targetWeek, setTargetWeek] = useState(globalWeek);
+      const [targetWeek, setTargetWeek] = useState('');
 
-      const routineSearchReady = targetClass && targetSection && targetShift && targetMonth && targetWeek;
+      const [newTeacherName, setNewTeacherName] = useState('');
+      const [newTeacherId, setNewTeacherId] = useState('');
+      const [newTeacherPass, setNewTeacherPass] = useState('');
+      const [teacherIdToDelete, setTeacherIdToDelete] = useState(null);
+      const [dirAlert, setDirAlert] = useState(null);
+
+      const isSearchParameterSet = useMemo(() => {
+        return !!(targetClass && targetSection && targetShift && targetWeek);
+      }, [targetClass, targetSection, targetShift, targetWeek]);
 
       const filteredRoutinePlans = useMemo(() => {
-        if (!routineSearchReady) return [];
-        return lessonPlans.filter(p => p.class_name === targetClass && p.section === targetSection && p.shift === targetShift && (p.month_name || 'January') === targetMonth && p.week_number === targetWeek);
-      }, [lessonPlans, targetClass, targetSection, targetShift, targetMonth, targetWeek, routineSearchReady]);
+        if (!isSearchParameterSet) return [];
+        return lessonPlans.filter(plan => {
+          return (
+            plan.class_name === targetClass &&
+            plan.section === targetSection &&
+            plan.shift === targetShift &&
+            plan.week_number === targetWeek
+          );
+        });
+      }, [lessonPlans, targetClass, targetSection, targetShift, targetWeek, isSearchParameterSet]);
+
+      const handleLoginSubmit = (e) => {
+        e.preventDefault();
+        setLoginError('');
+        const success = onLogin(passwordInput);
+        if (!success) {
+          setLoginError('Passcode invalid! Use "hikma123" to enter.');
+        }
+      };
+
+      const handleAddTeacherSubmit = (e) => {
+        e.preventDefault();
+        setDirAlert(null);
+        if (!newTeacherName.trim() || !newTeacherId.trim() || !newTeacherPass.trim()) return;
+        
+        if (teachersList.some(t => t.teacher_id.toLowerCase() === newTeacherId.trim().toLowerCase())) {
+          setDirAlert({ type: 'error', text: 'Error: ID already registered to an educator.' });
+          return;
+        }
+        
+        onAddTeacher(newTeacherName.trim(), newTeacherId.trim(), newTeacherPass.trim());
+        setNewTeacherName('');
+        setNewTeacherId('');
+        setNewTeacherPass('');
+        setDirAlert({ type: 'success', text: 'Success: Educator credential profile cataloged!' });
+      };
+
+      const triggerPrintService = () => {
+        window.print();
+      };
+
+      const exportPrintableReport = () => {
+        if (!isSearchParameterSet) return;
+        const htmlPayload = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Class Routine - Class ${targetClass}</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; color: #011; margin: 15mm; }
+    .header-block { text-align: center; border-bottom: 3px double #111; padding-bottom: 12px; margin-bottom: 24px; }
+    .school-name { font-size: 26px; font-weight: 800; color: #1e3a8a; margin: 10px 0 4px 0; }
+    .hw-container { background: #fafafa; border-left: none; padding: 5px 10px; font-style: italic; }
+    th, td { border: 1px solid #222; padding: 10px; text-align: left; }
+    table { width: 100%; border-collapse: collapse; }
+    @media print { @page { size: A4 landscape; margin: 10mm; } }
+  </style>
+</head>
+<body>
+  <div class="header-block">
+    <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 12px;">
+      <svg viewBox="0 0 320 300" style="height: 56px; width: 60px; display: inline-block;" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="100" height="300" fill="#0082C8" rx="4" />
+        <rect x="110" y="0" width="100" height="300" fill="#0082C8" rx="4" />
+        <rect x="220" y="0" width="100" height="300" fill="#0082C8" rx="4" />
+        <path d="M 0,0 L 100,0 L 100,102.4 Q 50,110.5 0,105 Z" fill="#046582" />
+        <path d="M 110,0 L 210,0 L 210,81.3 Q 160,93.5 110,101.4 Z" fill="#942A2D" />
+        <path d="M 220,0 L 320,0 L 320,35 Q 270,59.3 220,79.1 Z" fill="#046582" />
+        <path d="M 0,105 Q 160,115 320,35" stroke="#FFFFFF" stroke-width="8" fill="none" stroke-linecap="round" />
+        <text x="50" y="225" fill="#FFFFFF" font-family="'Times New Roman', Georgia, serif" font-weight="bold" font-size="88" text-anchor="middle">H</text>
+        <text x="160" y="225" fill="#FFFFFF" font-family="'Times New Roman', Georgia, serif" font-weight="bold" font-size="88" text-anchor="middle">I</text>
+        <text x="270" y="225" fill="#FFFFFF" font-family="'Times New Roman', Georgia, serif" font-weight="bold" font-size="88" text-anchor="middle">S</text>
+      </svg>
+    </div>
+    <h1 class="school-name">HIKMA INTERNATIONAL SCHOOL</h1>
+    <p>Class Routine | Class: ${targetClass} | Section: ${targetSection} | Shift: ${targetShift} | ${targetWeek}</p>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Educator</th>
+        <th>Subject</th>
+        <th>Class Work</th>
+        <th>Homework</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${filteredRoutinePlans.map(p => `
+        <tr>
+          <td><b>${p.lesson_date}</b></td>
+          <td><b>${p.teacher_name}</b></td>
+          <td><b>${p.subject_name}</b></td>
+          <td>${p.class_work}</td>
+          <td>${p.homework === 'No Homework' ? '<span style="color:#888;">None</span>' : `<div class="hw-container">${p.homework}</div>`}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+  <script>window.onload = function() { setTimeout(function(){ window.print(); }, 300); }<\/script>
+</body>
+</html>`;
+        const blob = new Blob([htmlPayload], { type: 'text/html;charset=utf-8' });
+        const objUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = objUrl;
+        a.download = `Class_Routine_Class_${targetClass}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      };
 
       if (!isAdminLoggedIn) {
         return (
-          <div className="max-w-md mx-auto bg-white p-8 rounded-3xl border text-left space-y-4 shadow-xl">
-            <h3 className="text-lg font-bold text-center flex justify-center items-center gap-1.5"><ShieldIcon /> Office Passcode Vault</h3>
+          <div className="max-w-md w-full mx-auto bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 mt-10 text-left space-y-6 shadow-xl animate-fade-in">
+            <h3 className="text-lg font-bold font-display text-slate-900 text-center flex justify-center items-center gap-1.5"><ShieldIcon /> Verification Gate</h3>
             {loginError && <p className="text-xs text-rose-700 bg-rose-50 p-2 rounded-xl text-center font-bold">{loginError}</p>}
-            <form onSubmit={e => { e.preventDefault(); if (!onLogin(passInput)) setLoginError('Incorrect passcode! Try "hikma123"'); }} className="space-y-4">
-              <input type="password" value={passInput} onChange={e => setPassInput(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm" placeholder="Passcode (hikma123)" required />
-              <button type="submit" className="w-full bg-rose-600 font-bold text-white py-2.5 rounded-xl text-sm">Unlock Dashboard</button>
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold block mb-1">Office Password / পাসকোড</label>
+                <input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm" placeholder="e.g. hikma123" required />
+              </div>
+              <button type="submit" className="w-full bg-rose-600 hover:bg-rose-700 font-bold text-white py-3 rounded-xl text-xs sm:text-sm cursor-pointer">Authorize Identity</button>
             </form>
+            <div className="bg-amber-50 p-4 border-l-4 border-amber-400 text-xs text-amber-900">
+              🔒 Dev Passcode reminder is <b>hikma123</b>. Enter this to login instantly.
+            </div>
           </div>
         );
       }
 
       return (
-        <div className="space-y-6 text-left animate-fade-in">
-          <div className="flex bg-slate-200 p-1 rounded-xl max-w-md border no-print">
-            <button onClick={() => setOfficeTab('routine')} className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg ${officeTab === 'routine' ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Review Log Routines</button>
-            <button onClick={() => setOfficeTab('teachers')} className={`flex-1 py-1.5 px-3 text-xs font-bold rounded-lg ${officeTab === 'teachers' ? 'bg-slate-900 text-white' : 'text-slate-600'}`}>Faculty Registry</button>
+        <div className="space-y-6 animate-fade-in text-left">
+          <div className="flex bg-slate-200 p-1.5 rounded-2xl max-w-md border no-print">
+            <button onClick={() => setActiveOfficeTab('routine')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer ${activeOfficeTab === 'routine' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Check Routine</button>
+            <button onClick={() => setActiveOfficeTab('teachers')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer ${activeOfficeTab === 'teachers' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Teachers List</button>
+            <button onClick={() => setActiveOfficeTab('settings')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer ${activeOfficeTab === 'settings' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>⚙️ System Settings</button>
           </div>
 
-          {officeTab === 'routine' ? (
+          {activeOfficeTab === 'routine' ? (
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-3xl border space-y-4 no-print">
-                <h3 className="font-bold text-slate-900 flex items-center gap-1.5"><SearchIcon /> Set Verification Audit Parameters</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                <h3 className="font-bold text-slate-900 flex items-center gap-1.5"><SearchIcon /> Select Routine Filters</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Class</label>
-                    <select value={targetClass} onChange={e => setTargetClass(e.target.value)} className="w-full bg-slate-50 border p-2 rounded-xl text-xs h-10">
-                      <option value="">-- Select --</option>{CLASSES.map(c => <option key={c} value={c}>Class {c}</option>)}
+                    <label className="text-xs font-semibold text-slate-650 block mb-1">Class</label>
+                    <select value={targetClass} onChange={e => setTargetClass(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Class --</option>
+                      {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Section</label>
-                    <select value={targetSection} onChange={e => setTargetSection(e.target.value)} className="w-full bg-slate-50 border p-2 rounded-xl text-xs h-10">
-                      <option value="">-- Select --</option>{SECTIONS.map(s => <option key={s} value={s}>Section {s}</option>)}
+                    <label className="text-xs font-semibold text-slate-650 block mb-1">Section</label>
+                    <select value={targetSection} onChange={e => setTargetSection(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Section --</option>
+                      {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Shift</label>
-                    <select value={targetShift} onChange={e => setTargetShift(e.target.value)} className="w-full bg-slate-50 border p-2 rounded-xl text-xs h-10">
-                      <option value="">-- Select --</option>{SHIFTS.map(s => <option key={s} value={s}>{s}</option>)}
+                    <label className="text-xs font-semibold text-slate-650 block mb-1">Shift</label>
+                    <select value={targetShift} onChange={e => setTargetShift(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Shift --</option>
+                      {SHIFTS.map(sh => <option key={sh} value={sh}>{sh} Shift</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Month</label>
-                    <select value={targetMonth} onChange={e => setTargetMonth(e.target.value)} className="w-full bg-slate-50 border p-2 rounded-xl text-xs h-10">
-                      {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Week</label>
-                    <select value={targetWeek} onChange={e => setTargetWeek(e.target.value)} className="w-full bg-slate-50 border p-2 rounded-xl text-xs h-10">
-                      {WEEKS_IN_MONTH.map(w => <option key={w} value={w}>{w}</option>)}
+                    <label className="text-xs font-semibold text-slate-650 block mb-1">Week</label>
+                    <select value={targetWeek} onChange={e => setTargetWeek(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Week --</option>
+                      {WEEKS.map(wk => <option key={wk} value={wk}>{wk}</option>)}
                     </select>
                   </div>
                 </div>
               </div>
 
-              {routineSearchReady ? (
-                <div className="bg-white rounded-3xl border p-6 space-y-4" id="printable-report-card">
-                  <div className="flex justify-between items-center border-b pb-3 no-print">
-                    <h4 className="font-bold text-slate-900">Compiled Syllabus Worksheet</h4>
-                    <button onClick={() => window.print()} className="bg-slate-900 text-white font-bold text-xs px-4 py-2 rounded-xl"><PrinterIcon /> Print / PDF</button>
+              {isSearchParameterSet ? (
+                <div className="bg-white rounded-3xl border p-6 sm:p-8 space-y-6 shadow-sm" id="printable-report-card">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b pb-4 gap-4 no-print flex-wrap">
+                    <div>
+                      <h4 className="font-bold text-slate-900">Syllabus Sheet Output</h4>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { const el = document.getElementById("printable-report-card"); if(el) el.scrollIntoView({behavior:'smooth'}); }} className="flex items-center gap-1.5 px-4 py-2 bg-[#1a4d2e] text-white font-bold text-xs sm:text-sm rounded-xl cursor-pointer"><SearchIcon /><span>Display</span></button>
+                      <button onClick={triggerPrintService} className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs sm:text-sm rounded-xl border cursor-pointer"><PrinterIcon /><span>Print Routines / প্রিন্ট</span></button>
+                      <button onClick={exportPrintableReport} className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-850 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md cursor-pointer"><FileDownIcon /><span>Download Report PDF</span></button>
+                    </div>
                   </div>
 
-                  <div className="text-center pb-4 border-b-2 border-slate-800 space-y-2">
-                    <h2 className="text-xl font-extrabold text-indigo-900 tracking-wide uppercase">Hikma International School</h2>
-                    <p className="text-xs text-slate-600 font-bold">Class Routine Tracker Audit Summary</p>
-                    <div className="text-xs bg-slate-100 px-3 py-1.5 rounded-xl inline-block font-semibold">
-                      Class: {targetClass} | Section: {targetSection} | {targetShift} Shift | Timeline: {targetMonth}, {targetWeek}
+                  {/* Printable Page Header (Perfect Print Layout Visibility Rule Included) */}
+                  <div className="text-center pb-5 border-b-2 border-slate-800 space-y-3 flex flex-col items-center justify-center print:flex">
+                    <div className="bg-white p-2.5 rounded-xl border flex items-center justify-center shrink-0">
+                      <Logo className="h-[64px] w-[64px] text-slate-900" />
+                    </div>
+                    <div>
+                      <h4 className="text-md font-bold font-display tracking-widest text-slate-500 uppercase">Hikma International School</h4>
+                      <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 font-display">Class Routine</h2>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs text-slate-700 font-bold pt-1">
+                      <span className="bg-slate-100 border px-3 py-1 rounded-full">Class: {targetClass}</span>
+                      <span className="bg-slate-100 border px-3 py-1 rounded-full">Section: {targetSection}</span>
+                      <span className="bg-slate-100 border px-3 py-1 rounded-full">Shift: {targetShift} Shift</span>
+                      <span className="bg-slate-100 border px-3 py-1 rounded-full">{targetWeek}</span>
                     </div>
                   </div>
 
                   {filteredRoutinePlans.length === 0 ? (
-                    <p className="text-center text-slate-400 py-6 italic">No recorded lesson plans found for this filter scope.</p>
+                    <div className="py-12 text-center text-slate-400 italic font-medium">No recorded plans match filtration.</div>
                   ) : (
-                    <table className="w-full text-sm text-left">
-                      <thead>
-                        <tr className="bg-slate-50 border-b">
-                          <th className="p-3 font-bold">Date</th>
-                          <th className="p-3 font-bold">Educator</th>
-                          <th className="p-3 font-bold">Subject</th>
-                          <th className="p-3 font-bold">Class Work Description</th>
-                          <th className="p-3 font-bold">Homework</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {filteredRoutinePlans.map(p => (
-                          <tr key={p.id}>
-                            <td className="p-3"><b>{p.lesson_date}</b></td>
-                            <td className="p-3 text-indigo-900 font-semibold">{p.teacher_name}</td>
-                            <td className="p-3 font-bold">{p.subject_name}</td>
-                            <td className="p-3 text-xs whitespace-pre-wrap">{p.class_work}</td>
-                            <td className="p-3 text-xs italic">{p.homework}</td>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm border-collapse">
+                        <thead className="bg-slate-50 border-b">
+                          <tr>
+                            <th className="p-4 font-bold">Date</th>
+                            <th className="p-4 font-bold">Educator</th>
+                            <th className="p-4 font-bold">Subject</th>
+                            <th className="p-4 font-bold">Class Work Details</th>
+                            <th className="p-4 font-bold">Assigned Homework</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y">
+                          {filteredRoutinePlans.map(p => (
+                            <tr key={p.id}>
+                              <td className="p-4"><b>{p.lesson_date}</b></td>
+                              <td className="p-4 font-semibold text-indigo-950">{p.teacher_name}</td>
+                              <td className="p-4 font-bold text-slate-700">{p.subject_name}</td>
+                              <td className="p-4 text-xs sm:text-sm whitespace-pre-wrap">{p.class_work}</td>
+                              <td className="p-4">
+                                {p.homework === 'No Homework' ? (
+                                  <span className="text-slate-400 italic text-xs">None</span>
+                                ) : (
+                                  <div className="border-l-3 border-[#1e3a8a] print:border-l-0 bg-slate-50 p-2 text-xs italic text-slate-705 shadow-none">
+                                    {p.homework}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               ) : (
-                <div className="bg-slate-100 p-8 rounded-2xl text-center text-slate-400 text-sm">Please select Class, Section, Shift, Month, and Week options to view data.</div>
+                <div className="bg-slate-100 p-8 rounded-3xl text-center text-slate-500 font-medium">Awaiting checklist parameters. Select Class, Section, Shift, and Syllabus Week.</div>
               )}
             </div>
-          ) : (
-            <div className="bg-white border p-6 rounded-3xl space-y-4 max-w-xl mx-auto">
-              <h3 className="font-bold border-b pb-2 text-slate-900">Faculty Registry Management</h3>
-              <form onSubmit={e => { e.preventDefault(); if (newTeacherName.trim()) { onAddTeacher(newTeacherName.trim()); setNewTeacherName(''); } }} className="flex gap-2">
-                <input type="text" value={newTeacherName} onChange={e => setNewTeacherName(e.target.value)} placeholder="Full Faculty Name..." className="border p-2 rounded-xl text-xs flex-grow bg-slate-50" required />
-                <button type="submit" className="bg-slate-900 text-white font-bold text-xs px-4 rounded-xl flex items-center gap-1"><PlusIcon /> Add</button>
+          ) : activeOfficeTab === 'teachers' ? (
+            <div className="bg-white border p-6 sm:p-8 rounded-3xl space-y-6 max-w-3xl mx-auto shadow-sm">
+              <h3 className="font-bold border-b pb-3 text-slate-900 text-lg">Faculty Management Directory</h3>
+              
+              <form onSubmit={handleAddTeacherSubmit} className="bg-slate-50 p-4 rounded-2xl border space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Register New Teacher Profile</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Full Name</label>
+                    <input type="text" value={newTeacherName} onChange={e => setNewTeacherName(e.target.value)} placeholder="e.g. Tasnim Alom" className="w-full border p-2 rounded-xl text-sm bg-white" required />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">User Login ID</label>
+                    <input type="text" value={newTeacherId} onChange={e => setNewTeacherId(e.target.value)} placeholder="e.g. t106" className="w-full border p-2 rounded-xl text-sm bg-white" required />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Secret Password</label>
+                    <input type="text" value={newTeacherPass} onChange={e => setNewTeacherPass(e.target.value)} placeholder="Passcode string" className="w-full border p-2 rounded-xl text-sm bg-white" required />
+                  </div>
+                </div>
+                <div className="flex justify-end pt-1">
+                  <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer"><PlusIcon /> Save Credentials</button>
+                </div>
               </form>
-              <div className="border rounded-xl overflow-hidden mt-2">
-                <table className="w-full text-left text-xs divide-y">
+              
+              {dirAlert && <p className="bg-blue-50 text-blue-900 p-3 rounded-xl text-xs font-semibold">{dirAlert.text}</p>}
+              
+              <div className="border rounded-xl overflow-hidden mt-4">
+                <table className="w-full text-left text-sm divide-y">
                   <thead className="bg-slate-50">
-                    <tr><th className="p-3">Teacher Roster Name</th><th className="p-3 text-right">System Action</th></tr>
+                    <tr>
+                      <th className="p-4 font-bold">Teacher Name</th>
+                      <th className="p-4 font-bold">Workspace ID</th>
+                      <th className="p-4 font-bold">Secret Passcode</th>
+                      <th className="p-4 font-bold text-right">Office Actions</th>
+                    </tr>
                   </thead>
-                  <tbody className="divide-y">
-                    {teachersList.map(t => (
-                      <tr key={t.id}>
-                        <td className="p-3 font-bold text-slate-700">{t.teacher_name}</td>
-                        <td className="p-3 text-right">
-                          {teacherIdToDelete === t.id ? (
-                            <div className="inline-flex gap-2 items-center">
-                              <span className="text-xs font-bold text-rose-600">Delete?</span>
-                              <button onClick={() => { onDeleteTeacher(t.id); setTeacherIdToDelete(null); }} className="bg-rose-600 text-white px-2 py-0.5 rounded text-[10px]">Yes</button>
-                              <button onClick={() => setTeacherIdToDelete(null)} className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-[10px]">No</button>
+                  <tbody className="divide-y bg-white">
+                    {teachersList.map((teacher) => (
+                      <tr key={teacher.id}>
+                        <td className="p-4 font-bold text-slate-800">{teacher.teacher_name}</td>
+                        <td className="p-4 font-mono text-xs text-sky-700 bg-sky-50/40">{teacher.teacher_id}</td>
+                        <td className="p-4 font-mono text-xs text-slate-600">{teacher.passcode}</td>
+                        <td className="p-4 text-right">
+                          {teacherIdToDelete === teacher.id ? (
+                            <div className="inline-flex gap-1.5 items-center">
+                              <span className="text-xs text-rose-500 font-bold">Remove?</span>
+                              <button onClick={() => { onDeleteTeacher(teacher.id); setTeacherIdToDelete(null); }} className="bg-rose-600 text-white text-xs px-2 py-1 rounded cursor-pointer">Yes</button>
+                              <button onClick={() => setTeacherIdToDelete(null)} className="bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded cursor-pointer">No</button>
                             </div>
                           ) : (
-                            <button onClick={() => setTeacherIdToDelete(t.id)} className="text-rose-500 hover:text-rose-700 p-1 bg-rose-50 rounded-md"><TrashIcon /></button>
+                            <button onClick={() => setTeacherIdToDelete(teacher.id)} className="text-rose-500 hover:text-rose-700 p-1 bg-rose-50 rounded-lg cursor-pointer"><TrashIcon /></button>
                           )}
                         </td>
                       </tr>
@@ -710,12 +1195,40 @@
                 </table>
               </div>
             </div>
+          ) : (
+            /* System settings tab content */
+            <div className="space-y-6 max-w-3xl mx-auto animate-fade-in no-print text-left">
+              <div className="bg-white border border-slate-200 p-6 sm:p-8 rounded-3xl shadow-sm space-y-4">
+                <h3 className="text-base sm:text-lg font-bold font-display text-slate-900 flex items-center gap-2">
+                  ⚙️ Active Calendar Week Settings
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-505 leading-normal">
+                  Update the current active scholastic week for Hikma International School's lesson workspace. This changes what is shown by default to teachers and determines which data belongs to the current week versus the archive.
+                </p>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-150">
+                  <span className="text-xs sm:text-sm font-bold text-slate-600">Select Global Active Week:</span>
+                  <select
+                    value={currentWeek}
+                    onChange={(e) => onCurrentWeekChange(e.target.value)}
+                    className="bg-white border-2 border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 h-10 min-w-[150px] cursor-pointer"
+                  >
+                    {WEEKS.map((wk) => (
+                      <option key={wk} value={wk}>
+                        {wk} {wk === currentWeek ? '(Active Now)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       );
     }
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
+    // BOOTSTRAP IN ROOT CONTAINER
+    const rootEl = document.getElementById('root');
+    const root = ReactDOM.createRoot(rootEl);
     root.render(<App />);
   </script>
 </body>
