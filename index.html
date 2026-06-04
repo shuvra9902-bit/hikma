@@ -30,9 +30,18 @@
       .no-print {
         display: none !important;
       }
-      body {
+      html, body, #root, #root > div, main {
         background-color: white !important;
         color: black !important;
+        height: auto !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+        display: block !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      main {
+        width: 100% !important;
       }
       .print-visible {
         display: block !important;
@@ -42,6 +51,20 @@
         box-shadow: none !important;
         padding: 0 !important;
         margin: 0 !important;
+        width: 100% !important;
+        display: block !important;
+      }
+      .overflow-x-auto {
+        overflow: visible !important;
+        display: block !important;
+      }
+      table {
+        width: 100% !important;
+        table-layout: auto !important;
+      }
+      tr {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
       }
     }
     .animate-fade-in {
@@ -669,6 +692,7 @@
                 setCurrentFilterMonth={setCurrentFilterMonth}
                 currentFilterWeek={currentFilterWeek}
                 setCurrentFilterWeek={setCurrentFilterWeek}
+                supabase={supabase}
               />
             )}
           </main>
@@ -1114,12 +1138,260 @@
         </div>
       );
     }
+    function SQLConsole({ supabase }) {
+      const [sqlQuery, setSqlQuery] = useState('SELECT * FROM public.hikma_plans ORDER BY created_at DESC LIMIT 10;');
+      const [results, setResults] = useState(null);
+      const [error, setError] = useState(null);
+      const [loading, setLoading] = useState(false);
 
-    function HeadmasterPortal({ isAdminLoggedIn, teachersList, lessonPlans, onLogin, onAddTeacher, onDeleteTeacher, currentFilterMonth, setCurrentFilterMonth, currentFilterWeek, setCurrentFilterWeek }) {
+      const runQuery = async () => {
+        if (!supabase) {
+          setError('Supabase database client is not configured. Please click the Cog icon in the header to set up your credentials.');
+          setResults(null);
+          return;
+        }
+        setLoading(true);
+        setError(null);
+        setResults(null);
+        try {
+          const { data, error: rpcError } = await supabase.rpc('exec_sql', { sql_query: sqlQuery });
+          if (rpcError) {
+            setError(rpcError.message || JSON.stringify(rpcError));
+          } else if (data && data.error) {
+            setError(data.error);
+          } else {
+            setResults(data);
+          }
+        } catch (err) {
+          setError(err.message || 'An unexpected error occurred while executing the query.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      const copyToClipboard = (text) => {
+        navigator.clipboard.writeText(text);
+        alert('Copied to clipboard!');
+      };
+
+      const tableDDL = `-- 1. Create Teachers Table
+CREATE TABLE IF NOT EXISTS public.hikma_teachers (
+  id TEXT PRIMARY KEY,
+  teacher_id TEXT NOT NULL UNIQUE,
+  teacher_name TEXT NOT NULL,
+  passcode TEXT NOT NULL,
+  created_at BIGINT DEFAULT EXTRACT(epoch FROM now()) * 1000
+);
+
+-- 2. Create Lesson Plans Table
+CREATE TABLE IF NOT EXISTS public.hikma_plans (
+  id TEXT PRIMARY KEY,
+  teacher_name TEXT NOT NULL,
+  class_name TEXT NOT NULL,
+  section TEXT NOT NULL,
+  shift TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  lesson_date TEXT NOT NULL,
+  lesson_month TEXT NOT NULL,
+  lesson_week TEXT NOT NULL,
+  class_work TEXT NOT NULL,
+  homework TEXT NOT NULL,
+  created_at BIGINT DEFAULT EXTRACT(epoch FROM now()) * 1000
+);
+
+-- 3. Enable RLS
+ALTER TABLE public.hikma_teachers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hikma_plans ENABLE ROW LEVEL SECURITY;
+
+-- 4. Enable Public Access Policies
+CREATE POLICY "Allow public read" ON public.hikma_teachers FOR SELECT USING (true);
+CREATE POLICY "Allow public insert" ON public.hikma_teachers FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update" ON public.hikma_teachers FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete" ON public.hikma_teachers FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read plans" ON public.hikma_plans FOR SELECT USING (true);
+CREATE POLICY "Allow public insert plans" ON public.hikma_plans FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update plans" ON public.hikma_plans FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete plans" ON public.hikma_plans FOR DELETE USING (true);`;
+
+      const rpcDDL = `CREATE OR REPLACE FUNCTION exec_sql(sql_query text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  result jsonb;
+BEGIN
+  IF sql_query ~* '^\\s*(select|show|with|explain)\\s' THEN
+    EXECUTE 'select coalesce(jsonb_agg(t), ''[]''::jsonb) from (' || sql_query || ') t' INTO result;
+  ELSE
+    EXECUTE sql_query;
+    result := jsonb_build_object('status', 'success', 'message', 'Command executed successfully');
+  END IF;
+  RETURN result;
+EXCEPTION WHEN OTHERS THEN
+  RETURN jsonb_build_object('error', SQLERRM);
+END;
+$$;`;
+
+      return (
+        <div className="space-y-6 animate-fade-in text-left">
+          <div className="bg-white border p-6 sm:p-8 rounded-3xl shadow-sm space-y-6">
+            <div className="border-b pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="font-bold text-slate-900 text-lg flex items-center gap-1.5 font-display">
+                  <DatabaseIcon />
+                  <span>Supabase SQL Console</span>
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-1">Execute SQL statements directly on your Supabase database instance.</p>
+              </div>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setSqlQuery('SELECT * FROM public.hikma_plans ORDER BY created_at DESC LIMIT 10;')}
+                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border cursor-pointer transition-all"
+                >
+                  Plans Query
+                </button>
+                <button 
+                  onClick={() => setSqlQuery('SELECT * FROM public.hikma_teachers ORDER BY teacher_name ASC;')}
+                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border cursor-pointer transition-all"
+                >
+                  Teachers Query
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="relative">
+                <textarea
+                  value={sqlQuery}
+                  onChange={(e) => setSqlQuery(e.target.value)}
+                  className="w-full bg-slate-900 text-emerald-400 font-mono text-sm p-4 rounded-2xl min-h-[150px] border border-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none leading-relaxed"
+                  placeholder="SELECT * FROM public.hikma_plans LIMIT 10;"
+                />
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-[11px] text-slate-400 font-mono font-medium">
+                  {!supabase ? "⚠️ Database client not configured" : "⚡ Database client connected"}
+                </span>
+                <button
+                  onClick={runQuery}
+                  disabled={loading}
+                  className="bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white font-bold py-2.5 px-6 rounded-xl text-sm transition-all shadow-md cursor-pointer flex items-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                      <span>Running...</span>
+                    </>
+                  ) : (
+                    <span>Execute Query</span>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {error && (
+              <div className="bg-rose-50 border border-rose-100 text-rose-800 p-4 rounded-2xl space-y-2 text-xs sm:text-sm animate-fade-in">
+                <p className="font-bold flex items-center gap-1.5 text-rose-900">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <span>Query Execution Error</span>
+                </p>
+                <pre className="font-mono bg-rose-100/50 p-3 rounded-xl overflow-x-auto text-[11px] font-medium leading-relaxed whitespace-pre-wrap">{error}</pre>
+                <p className="text-[11px] font-semibold text-rose-700">Note: If you haven't created the <code>exec_sql</code> RPC function yet, check the setup guidelines below.</p>
+              </div>
+            )}
+
+            {results && (
+              <div className="space-y-3 animate-fade-in">
+                <h4 className="font-bold text-slate-800 text-sm flex items-center gap-1">
+                  <span>Query Results</span>
+                  <span className="text-xs font-mono font-medium text-slate-400">({Array.isArray(results) ? results.length : 1} items)</span>
+                </h4>
+                
+                {Array.isArray(results) && results.length > 0 ? (
+                  <div className="overflow-x-auto border rounded-xl max-h-[300px]">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-50 sticky top-0 border-b shadow-sm z-10">
+                        <tr>
+                          {Object.keys(results[0]).map((key) => (
+                            <th key={key} className="p-3 font-bold border-b text-slate-700 bg-slate-50 uppercase tracking-wider text-[10px]">{key}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y font-mono font-medium text-slate-600">
+                        {results.map((row, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            {Object.values(row).map((val, cellIdx) => (
+                              <td key={cellIdx} className="p-3 whitespace-nowrap max-w-[200px] truncate" title={val !== null ? String(val) : 'NULL'}>
+                                {val === null ? <span className="text-slate-300 italic">NULL</span> : String(val)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <pre className="font-mono bg-slate-50 border p-4 rounded-xl text-xs overflow-x-auto leading-relaxed text-slate-700">
+                    {JSON.stringify(results, null, 2)}
+                  </pre>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Table DDL Helper */}
+            <div className="bg-white border p-6 rounded-3xl shadow-sm space-y-4">
+              <div className="flex justify-between items-center border-b pb-2">
+                <h4 className="font-bold text-slate-900 text-sm">Table Schema Setup</h4>
+                <button 
+                  onClick={() => copyToClipboard(tableDDL)}
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border cursor-pointer transition-all"
+                >
+                  Copy DDL SQL
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                Run this script in the Supabase SQL editor to construct the required tables (<code>hikma_teachers</code> and <code>hikma_plans</code>) and configure public access policies.
+              </p>
+              <pre className="bg-slate-50 p-3 rounded-xl border font-mono text-[10px] text-slate-600 overflow-x-auto max-h-[220px] leading-relaxed">
+                {tableDDL}
+              </pre>
+            </div>
+
+            {/* RPC Function Helper */}
+            <div className="bg-white border p-6 rounded-3xl shadow-sm space-y-4">
+              <div className="flex justify-between items-center border-b pb-2">
+                <h4 className="font-bold text-slate-900 text-sm">Enable Remote Execution (RPC)</h4>
+                <button 
+                  onClick={() => copyToClipboard(rpcDDL)}
+                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border cursor-pointer transition-all"
+                >
+                  Copy RPC SQL
+                </button>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                To execute raw SQL directly from this portal, you must define the following database helper function in your Supabase project.
+              </p>
+              <pre className="bg-slate-50 p-3 rounded-xl border font-mono text-[10px] text-slate-600 overflow-x-auto max-h-[220px] leading-relaxed">
+                {rpcDDL}
+              </pre>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function HeadmasterPortal({ isAdminLoggedIn, teachersList, lessonPlans, onLogin, onAddTeacher, onDeleteTeacher, currentFilterMonth, setCurrentFilterMonth, currentFilterWeek, setCurrentFilterWeek, supabase }) {
       const [passwordInput, setPasswordInput] = useState('');
       const [loginError, setLoginError] = useState('');
       const [activeOfficeTab, setActiveOfficeTab] = useState('routine');
 
+      const [searchMode, setSearchMode] = useState('class'); // 'class' | 'teacher'
+      const [targetTeacherName, setTargetTeacherName] = useState('');
       const [targetClass, setTargetClass] = useState('');
       const [targetSection, setTargetSection] = useState('');
       const [targetShift, setTargetShift] = useState('');
@@ -1132,18 +1404,26 @@
       const [teacherIdToDelete, setTeacherIdToDelete] = useState(null);
       const [dirAlert, setDirAlert] = useState(null);
 
-      const isSearchParameterSet = !!(targetClass && targetSection && targetShift && targetMonth && targetWeek);
+      const isSearchParameterSet = searchMode === 'class'
+        ? !!(targetClass && targetSection && targetShift && targetMonth && targetWeek)
+        : !!(targetTeacherName && targetMonth && targetWeek);
 
       const filteredRoutinePlans = useMemo(() => {
         if (!isSearchParameterSet) return [];
         return lessonPlans.filter(plan => {
-          return plan.class_name === targetClass &&
-                 plan.section === targetSection &&
-                 plan.shift === targetShift &&
-                 (plan.lesson_month || 'January') === targetMonth &&
-                 (plan.lesson_week || 'Week 1') === targetWeek;
+          if (searchMode === 'class') {
+            return plan.class_name === targetClass &&
+                   plan.section === targetSection &&
+                   plan.shift === targetShift &&
+                   (plan.lesson_month || 'January') === targetMonth &&
+                   (plan.lesson_week || 'Week 1') === targetWeek;
+          } else {
+            return plan.teacher_name === targetTeacherName &&
+                   (plan.lesson_month || 'January') === targetMonth &&
+                   (plan.lesson_week || 'Week 1') === targetWeek;
+          }
         });
-      }, [lessonPlans, targetClass, targetSection, targetShift, targetMonth, targetWeek, isSearchParameterSet]);
+      }, [lessonPlans, targetClass, targetSection, targetShift, targetTeacherName, targetMonth, targetWeek, searchMode, isSearchParameterSet]);
 
       const handleLoginSubmit = (e) => {
         e.preventDefault();
@@ -1195,37 +1475,73 @@
 
       return (
         <div className="space-y-6 animate-fade-in text-left">
-          <div className="flex bg-slate-200 p-1.5 rounded-2xl max-w-md border no-print">
+          <div className="flex bg-slate-200 p-1.5 rounded-2xl max-w-lg border no-print">
             <button onClick={() => setActiveOfficeTab('routine')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer ${activeOfficeTab === 'routine' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Check Routine</button>
             <button onClick={() => setActiveOfficeTab('teachers')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer ${activeOfficeTab === 'teachers' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Teachers List</button>
+            <button onClick={() => setActiveOfficeTab('sql_console')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer ${activeOfficeTab === 'sql_console' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>SQL Console</button>
           </div>
 
-          {activeOfficeTab === 'routine' ? (
+          {activeOfficeTab === 'routine' && (
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-3xl border space-y-4 no-print">
-                <h3 className="font-bold text-slate-900 flex items-center gap-1.5"><SearchIcon /> Select Routine Filters</h3>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <h3 className="font-bold text-slate-900 flex items-center gap-1.5"><SearchIcon /> Select Routine Filters</h3>
+                  
+                  {/* Search Mode Toggle */}
+                  <div className="flex bg-slate-100 p-1 rounded-xl border w-full sm:w-auto">
+                    <button 
+                      onClick={() => setSearchMode('class')}
+                      className={`flex-1 sm:flex-initial py-1 px-3 text-xs font-bold rounded-lg cursor-pointer transition-all ${
+                        searchMode === 'class' ? 'bg-white text-slate-900 shadow border border-slate-200' : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      Class Search
+                    </button>
+                    <button 
+                      onClick={() => setSearchMode('teacher')}
+                      className={`flex-1 sm:flex-initial py-1 px-3 text-xs font-bold rounded-lg cursor-pointer transition-all ${
+                        searchMode === 'teacher' ? 'bg-white text-slate-900 shadow border border-slate-200' : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      Teacher Search
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Class</label>
-                    <select value={targetClass} onChange={e => setTargetClass(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
-                      <option value="">-- Choose Class --</option>
-                      {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Section</label>
-                    <select value={targetSection} onChange={e => setTargetSection(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
-                      <option value="">-- Choose Section --</option>
-                      {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Shift</label>
-                    <select value={targetShift} onChange={e => setTargetShift(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
-                      <option value="">-- Choose Shift --</option>
-                      {SHIFTS.map(sh => <option key={sh} value={sh}>{sh} Shift</option>)}
-                    </select>
-                  </div>
+                  {searchMode === 'class' ? (
+                    <>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600 block mb-1">Class</label>
+                        <select value={targetClass} onChange={e => setTargetClass(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                          <option value="">-- Choose Class --</option>
+                          {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600 block mb-1">Section</label>
+                        <select value={targetSection} onChange={e => setTargetSection(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                          <option value="">-- Choose Section --</option>
+                          {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-slate-600 block mb-1">Shift</label>
+                        <select value={targetShift} onChange={e => setTargetShift(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                          <option value="">-- Choose Shift --</option>
+                          {SHIFTS.map(sh => <option key={sh} value={sh}>{sh} Shift</option>)}
+                        </select>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="sm:col-span-2 lg:col-span-3">
+                      <label className="text-xs font-semibold text-slate-600 block mb-1">Teacher Name</label>
+                      <select value={targetTeacherName} onChange={e => setTargetTeacherName(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                        <option value="">-- Select Teacher --</option>
+                        {teachersList.map(t => <option key={t.id} value={t.teacher_name}>{t.teacher_name} ({t.teacher_id})</option>)}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="text-xs font-semibold text-slate-600 block mb-1">Month</label>
                     <select value={targetMonth} onChange={e => setTargetMonth(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
@@ -1247,7 +1563,7 @@
                     <h4 className="font-bold text-slate-900">Syllabus Sheet Output</h4>
                     <button onClick={() => window.print()} className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white font-bold text-xs sm:text-sm rounded-xl cursor-pointer">
                       <PrinterIcon />
-                      <span>Print Class Routine</span>
+                      <span>{searchMode === 'class' ? 'Print Class Routine' : 'Print Teacher Schedule'}</span>
                     </button>
                   </div>
 
@@ -1256,9 +1572,19 @@
                       <Logo className="h-[64px] w-[64px]" />
                     </div>
                     <h1 className="text-2xl font-black font-display tracking-wide uppercase text-slate-900">Hikma International School</h1>
-                    <h2 className="text-lg font-bold text-slate-700 mt-1">Class Routine</h2>
+                    <h2 className="text-lg font-bold text-slate-700 mt-1">
+                      {searchMode === 'class' ? 'Class Routine' : 'Teacher Schedule'}
+                    </h2>
                     <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono font-semibold text-slate-600 pt-2">
-                      <span>Class: {targetClass}</span> • <span>Section: {targetSection}</span> • <span>Shift: {targetShift}</span> • <span>{targetMonth} ({targetWeek})</span>
+                      {searchMode === 'class' ? (
+                        <>
+                          <span>Class: {targetClass}</span> • <span>Section: {targetSection}</span> • <span>Shift: {targetShift}</span> • <span>{targetMonth} ({targetWeek})</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Educator: {targetTeacherName}</span> • <span>{targetMonth} ({targetWeek})</span>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -1270,7 +1596,9 @@
                         <thead className="bg-slate-50 border-b">
                           <tr>
                             <th className="p-4 font-bold">Date</th>
-                            <th className="p-4 font-bold">Educator</th>
+                            <th className="p-4 font-bold">
+                              {searchMode === 'class' ? 'Educator' : 'Class / Shift'}
+                            </th>
                             <th className="p-4 font-bold">Subject</th>
                             <th className="p-4 font-bold">Class Work Details</th>
                             <th className="p-4 font-bold">Assigned Homework</th>
@@ -1280,7 +1608,15 @@
                           {filteredRoutinePlans.map(p => (
                             <tr key={p.id}>
                               <td className="p-4 whitespace-nowrap"><b>{p.lesson_date}</b></td>
-                              <td className="p-4 font-semibold">{p.teacher_name}</td>
+                              <td className="p-4 font-semibold">
+                                {searchMode === 'class' ? (
+                                  p.teacher_name
+                                ) : (
+                                  <span className="bg-sky-50 text-sky-800 text-[10px] font-bold px-2 py-0.5 rounded border inline-block">
+                                    Class {p.class_name} ({p.section}) - {p.shift}
+                                  </span>
+                                )}
+                              </td>
                               <td className="p-4 font-bold text-slate-800">{p.subject_name}</td>
                               <td className="p-4 text-xs sm:text-sm whitespace-pre-wrap">{p.class_work}</td>
                               <td className="p-4 text-xs italic">
@@ -1294,10 +1630,16 @@
                   )}
                 </div>
               ) : (
-                <div className="bg-slate-100 p-8 rounded-3xl text-center text-slate-500 font-medium">Awaiting parameter selection. Please configure active Class, Section, Shift, Month, and Week specifications.</div>
+                <div className="bg-slate-100 p-8 rounded-3xl text-center text-slate-500 font-medium">
+                  {searchMode === 'class' 
+                    ? "Awaiting parameter selection. Please configure active Class, Section, Shift, Month, and Week specifications."
+                    : "Awaiting parameter selection. Please configure active Teacher Name, Month, and Week specifications."}
+                </div>
               )}
             </div>
-          ) : (
+          )}
+
+          {activeOfficeTab === 'teachers' && (
             <div className="bg-white border p-6 sm:p-8 rounded-3xl space-y-6 max-w-3xl mx-auto shadow-sm">
               <h3 className="font-bold border-b pb-3 text-slate-900 text-lg">Faculty Management Directory</h3>
               
@@ -1360,6 +1702,10 @@
                 </table>
               </div>
             </div>
+          )}
+
+          {activeOfficeTab === 'sql_console' && (
+            <SQLConsole supabase={supabase} />
           )}
         </div>
       );
