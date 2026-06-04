@@ -56,8 +56,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.21.4/babel.min.js"></script>
-  
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans antialiased">
   <div id="root"></div>
@@ -71,8 +69,7 @@
     const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
     const WEEKS = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
 
-    // Initial default seed arrays acting as standard fallback values when network is connecting
-    const FALLBACK_TEACHERS = [
+    const SEED_TEACHERS = [
       { id: 'teach_1', teacher_id: 't101', teacher_name: 'Mustafa Rahman', passcode: 'hikma11' },
       { id: 'teach_2', teacher_id: 't102', teacher_name: 'Dr. Fatema Nasrin', passcode: 'hikma22' },
       { id: 'teach_3', teacher_id: 't103', teacher_name: 'Sheikh Abdullah', passcode: 'hikma33' },
@@ -80,10 +77,22 @@
       { id: 'teach_5', teacher_id: 't105', teacher_name: 'Farhan Ahmed', passcode: 'hikma55' },
     ];
 
-    // Initialize Supabase Client Connection explicitly
-    const SUPABASE_URL = "https://noddojjnufbemzdqukjr.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vZGRvampudWZiZW16ZHF1a2pyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1NDg3NTQsImV4cCI6MjA5NjEyNDc1NH0.bdVOO10mcwAaV2R26aGG-vhRBkef-Su37x0oJagsGDM";
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const SEED_PLANS = [
+      {
+        id: 'seed_plan_1',
+        teacher_name: 'Mustafa Rahman',
+        class_name: 'KG',
+        section: 'A',
+        shift: 'Morning',
+        subject_name: 'English Writing',
+        lesson_date: new Date().toISOString().split('T')[0],
+        lesson_month: 'January',
+        lesson_week: 'Week 1',
+        class_work: 'Practiced tracing lowercase letters a to f on the whiteboard. Spelled simple vocabulary: cat, dog, sun.',
+        homework: 'Practice writing letters a to f in class script copy twice.',
+        created_at: Date.now() - 7200000,
+      }
+    ];
 
     function Logo({ className = "h-12 w-12" }) {
       return (
@@ -124,44 +133,26 @@
         return cached ? JSON.parse(cached) : null;
       });
 
-      // Synchronized states backed up remotely inside Supabase instance
-      const [teachers, setTeachers] = useState(FALLBACK_TEACHERS);
-      const [plans, setPlans] = useState([]);
+      const [teachers, setTeachers] = useState(() => {
+        const cached = localStorage.getItem('hikma_teachers_roster_v2');
+        return cached ? JSON.parse(cached) : SEED_TEACHERS;
+      });
+
+      const [plans, setPlans] = useState(() => {
+        const cached = localStorage.getItem('hikma_lessons_plans_v2');
+        return cached ? JSON.parse(cached) : SEED_PLANS;
+      });
 
       const [currentFilterMonth, setCurrentFilterMonth] = useState('January');
       const [currentFilterWeek, setCurrentFilterWeek] = useState('Week 1');
 
-      // ASYNCHRONOUS DATABASE SYNCHRONIZER ENGINE
-      const fetchDatabaseState = async () => {
-        try {
-          // 1. Fetch live authorized faculty roster sorted alphabetically
-          const { data: remoteTeachers, error: tErr } = await supabaseClient
-            .from('teachers')
-            .select('*')
-            .order('teacher_name', { ascending: true });
-          
-          if (!tErr && remoteTeachers && remoteTeachers.length > 0) {
-            setTeachers(remoteTeachers);
-          }
-
-          // 2. Fetch remote log logs sorted with newest inputs listed first
-          const { data: remotePlans, error: pErr } = await supabaseClient
-            .from('lesson_plans')
-            .select('*')
-            .order('created_at', { ascending: false });
-
-          if (!pErr && remotePlans) {
-            setPlans(remotePlans);
-          }
-        } catch (error) {
-          console.error("Supabase network fetch cycle skipped:", error);
-        }
-      };
-
-      // Trigger automatic sync on page initialization
       useEffect(() => {
-        fetchDatabaseState();
-      }, []);
+        localStorage.setItem('hikma_teachers_roster_v2', JSON.stringify(teachers));
+      }, [teachers]);
+
+      useEffect(() => {
+        localStorage.setItem('hikma_lessons_plans_v2', JSON.stringify(plans));
+      }, [plans]);
 
       useEffect(() => {
         localStorage.setItem('hikma_admin_auth', String(isAdminLoggedIn));
@@ -175,135 +166,30 @@
         }
       }, [loggedInTeacher]);
 
-      // SUBMIT AND WRITE NEW WORKSPACE LOG ENTRY TO CLOUD
-      const handleAddPlan = async (newPlan) => {
-        try {
-          const { error } = await supabaseClient
-            .from('lesson_plans')
-            .insert([{
-              teacher_id: loggedInTeacher ? loggedInTeacher.teacher_id : 't101',
-              teacher_name: newPlan.teacher_name,
-              class_name: newPlan.class_name,
-              section: newPlan.section,
-              shift: newPlan.shift,
-              subject_name: newPlan.subject_name,
-              lesson_date: newPlan.lesson_date,
-              lesson_month: newPlan.lesson_month,
-              lesson_week: newPlan.lesson_week,
-              class_work: newPlan.class_work,
-              homework: newPlan.homework
-            }]);
-
-          if (error) throw error;
-          await fetchDatabaseState(); // Smoothly sync client state arrays
-        } catch (e) {
-          alert("Supabase Log Insert Error: " + e.message);
-          // Local fallback mechanism to ensure portal functionality if offline
-          setPlans((prev) => [newPlan, ...prev]);
-        }
+      const handleAddPlan = (newPlan) => {
+        setPlans((prev) => [newPlan, ...prev]);
       };
 
-      // PERSIST EDITED ACTIVITY SPECIFICATIONS INTO THE DATABASE
-      const handleUpdatePlan = async (updatedPlan) => {
-        try {
-          // If ID contains fallback string flag, filter out locally, otherwise update remote Postgres row
-          if (String(updatedPlan.id).startsWith('plan_')) {
-            setPlans((prev) => prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p)));
-            return;
-          }
-
-          const { error } = await supabaseClient
-            .from('lesson_plans')
-            .update({
-              class_name: updatedPlan.class_name,
-              section: updatedPlan.section,
-              shift: updatedPlan.shift,
-              subject_name: updatedPlan.subject_name,
-              lesson_date: updatedPlan.lesson_date,
-              lesson_month: updatedPlan.lesson_month,
-              lesson_week: updatedPlan.lesson_week,
-              class_work: updatedPlan.class_work,
-              homework: updatedPlan.homework
-            })
-            .eq('id', updatedPlan.id);
-
-          if (error) throw error;
-          await fetchDatabaseState();
-        } catch (e) {
-          alert("Supabase Log Update Error: " + e.message);
-          setPlans((prev) => prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p)));
-        }
+      const handleUpdatePlan = (updatedPlan) => {
+        setPlans((prev) => prev.map((p) => (p.id === updatedPlan.id ? updatedPlan : p)));
       };
 
-      // REMOVE AN ENTRY ROW PERMANENTLY VIA TARGET MATRIX UUID KEY
-      const handleDeletePlan = async (id) => {
-        try {
-          if (String(id).startsWith('plan_')) {
-            setPlans((prev) => prev.filter((p) => p.id !== id));
-            return;
-          }
-
-          const { error } = await supabaseClient
-            .from('lesson_plans')
-            .delete()
-            .eq('id', id);
-
-          if (error) throw error;
-          await fetchDatabaseState();
-        } catch (e) {
-          alert("Supabase Log Delete Error: " + e.message);
-          setPlans((prev) => prev.filter((p) => p.id !== id));
-        }
+      const handleDeletePlan = (id) => {
+        setPlans((prev) => prev.filter((p) => p.id !== id));
       };
 
-      // HEADMASTER DIRECTORY MAPPING: STORE AN AUTHORIZED USER CREDENTIAL PROFILE
-      const handleAddTeacher = async (name, customId, password) => {
-        const cleanId = customId.trim();
-        const cleanName = name.trim();
-        const cleanPass = password.trim();
-
-        try {
-          const { error } = await supabaseClient
-            .from('teachers')
-            .insert([{
-              teacher_id: cleanId,
-              teacher_name: cleanName,
-              passcode: cleanPass
-            }]);
-
-          if (error) throw error;
-          await fetchDatabaseState();
-        } catch (e) {
-          alert("Supabase Teacher Profile Registration Error: " + e.message);
-          const newTeach = {
-            id: 'teach_' + Date.now(),
-            teacher_id: cleanId,
-            teacher_name: cleanName,
-            passcode: cleanPass
-          };
-          setTeachers((prev) => [...prev, newTeach]);
-        }
+      const handleAddTeacher = (name, customId, password) => {
+        const newTeach = {
+          id: 'teach_' + Date.now(),
+          teacher_id: customId.trim(),
+          teacher_name: name.trim(),
+          passcode: password.trim()
+        };
+        setTeachers((prev) => [...prev, newTeach]);
       };
 
-      // HEADMASTER DIRECTORY MAPPING: REMOVE USER DATA SPACE NODE
-      const handleDeleteTeacher = async (id) => {
-        try {
-          if (String(id).startsWith('teach_')) {
-            setTeachers((prev) => prev.filter((t) => t.id !== id));
-            return;
-          }
-
-          const { error } = await supabaseClient
-            .from('teachers')
-            .delete()
-            .eq('id', id);
-
-          if (error) throw error;
-          await fetchDatabaseState();
-        } catch (e) {
-          alert("Supabase Profile Revocation Notice: Ensure teacher has no recorded logs before removing entry. details: " + e.message);
-          setTeachers((prev) => prev.filter((t) => t.id !== id));
-        }
+      const handleDeleteTeacher = (id) => {
+        setTeachers((prev) => prev.filter((t) => t.id !== id));
       };
 
       const handleAdminLogin = (passcode) => {
@@ -615,4 +501,426 @@
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-slate-600 block mb-1">Section</label>
-                    <select value={section} onChange={e => setSection
+                    <select value={section} onChange={e => setSection(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11 cursor-pointer">
+                      {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Shift</label>
+                    <select value={shift} onChange={e => setShift(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11 cursor-pointer">
+                      {SHIFTS.map(sh => <option key={sh} value={sh}>{sh} Shift</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Subject</label>
+                    <input type="text" value={subjectName} onChange={e => setSubjectName(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11" required />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Date</label>
+                    <input type="date" value={classDate} onChange={e => setClassDate(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11" required />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Syllabus Month</label>
+                    <select value={lessonMonth} onChange={e => setLessonMonth(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11 cursor-pointer">
+                      {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Syllabus Week</label>
+                    <select value={lessonWeek} onChange={e => setLessonWeek(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11 cursor-pointer">
+                      {WEEKS.map(w => <option key={w} value={w}>{w}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-600 block mb-1">Class Work Details</label>
+                  <textarea value={classWork} onChange={e => setClassWork(e.target.value)} className="w-full bg-slate-50 border p-3 rounded-2xl text-sm min-h-[100px]" required />
+                </div>
+
+                <div className="space-y-3">
+                  <div onClick={() => setHasHomework(!hasHomework)} className="flex items-center space-x-3 bg-slate-50 p-4 rounded-xl border border-slate-200 cursor-pointer select-none">
+                    <input type="checkbox" checked={hasHomework} readOnly className="h-5 w-5" />
+                    <span className="text-sm font-semibold">Assign Student Homework?</span>
+                  </div>
+                  {hasHomework && (
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600 block mb-1">Homework Details</label>
+                      <textarea value={homeworkText} onChange={e => setHomeworkText(e.target.value)} className="w-full bg-slate-50 border p-3 rounded-2xl text-sm min-h-[70px]" required />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-between items-center pt-2">
+                  <div className="flex-grow">
+                    {successMsg && <div className="text-emerald-800 bg-emerald-50 text-xs p-3 rounded-xl inline-block">{successMsg}</div>}
+                    {errorMsg && <div className="text-rose-800 bg-rose-50 text-xs p-3 rounded-xl inline-block">{errorMsg}</div>}
+                  </div>
+                  <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-xl text-sm cursor-pointer">
+                    {editingPlanId ? 'Save Update' : 'Submit Plan'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div className="bg-white p-6 rounded-3xl border border-slate-200 h-fit">
+              <h4 className="font-bold text-slate-900 border-b pb-2 flex items-center gap-1.5"><BookOpenIcon /> Lesson Guidelines</h4>
+              <p className="text-xs text-slate-600 mt-3 leading-relaxed">
+                Logged workspace entries are tied directly to your teacher account name and automatically sync into the school system matrix.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">Your Activity Logs</h3>
+              <div className="flex gap-2">
+                <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search..." className="border px-3 py-1.5 rounded-xl text-xs bg-slate-50 w-44" />
+                <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="border rounded-xl text-xs bg-slate-50">
+                  <option value="All">All Classes</option>
+                  {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-slate-50 p-4 rounded-xl border text-sm no-print">
+              <span className="font-bold text-slate-700 shrink-0">Display Active Filter:</span>
+              <div className="flex flex-wrap gap-2 w-full">
+                <select value={currentFilterMonth} onChange={(e) => setCurrentFilterMonth(e.target.value)} className="bg-white border rounded-xl px-3 py-1.5 text-xs font-bold cursor-pointer">
+                  {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <select value={currentFilterWeek} onChange={(e) => setCurrentFilterWeek(e.target.value)} className="bg-white border rounded-xl px-3 py-1.5 text-xs font-bold cursor-pointer">
+                  {WEEKS.map(w => <option key={w} value={w}>{w}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border">
+              <table className="w-full text-left text-sm border-collapse">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="p-4 font-bold border-b">Schedule / Term</th>
+                    <th className="p-4 font-bold border-b">Subject</th>
+                    <th className="p-4 font-bold border-b">Class Work Details</th>
+                    <th className="p-4 font-bold border-b">Homework Task</th>
+                    <th className="p-4 font-bold border-b text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {paginatedPlans.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" className="p-8 text-center text-slate-400">No plans recorded matching this timeline filter.</td>
+                    </tr>
+                  ) : (
+                    paginatedPlans.map(plan => (
+                      <tr key={plan.id}>
+                        <td className="p-4">
+                          <b className="text-slate-800 text-xs block">{plan.lesson_date}</b>
+                          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 border px-1.5 py-0.5 rounded mt-1 inline-block">
+                            {plan.lesson_month || 'January'} • {plan.lesson_week || 'Week 1'}
+                          </span>
+                          <div className="text-xs text-slate-400 mt-1 font-medium">{plan.teacher_name}</div>
+                        </td>
+                        <td className="p-4">
+                          <span className="bg-sky-50 text-sky-800 text-[10px] font-bold px-2 py-0.5 rounded border">
+                            Class {plan.class_name} ({plan.section})
+                          </span>
+                          <div className="font-bold text-slate-700 mt-1">{plan.subject_name}</div>
+                        </td>
+                        <td className="p-4 whitespace-pre-wrap text-xs max-w-sm">{plan.class_work}</td>
+                        <td className="p-4 text-xs italic text-slate-600">
+                          {plan.homework === 'No Homework' ? <span className="text-slate-300">None</span> : plan.homework}
+                        </td>
+                        <td className="p-4 text-center">
+                          <div className="inline-flex gap-2">
+                            {planIdToDelete === plan.id ? (
+                              <div className="flex items-center gap-1">
+                                <button onClick={() => { onDeletePlan(plan.id); setPlanIdToDelete(null); }} className="bg-rose-600 text-white font-bold px-2 py-0.5 rounded text-xs cursor-pointer">Confirm</button>
+                                <button onClick={() => setPlanIdToDelete(null)} className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-xs cursor-pointer">No</button>
+                              </div>
+                            ) : (
+                              <>
+                                <button onClick={() => handleEditClick(plan)} disabled={plan.teacher_name !== loggedInTeacher.teacher_name} className={`p-1.5 rounded-lg ${plan.teacher_name === loggedInTeacher.teacher_name ? 'text-sky-500 bg-sky-50 hover:bg-sky-100 cursor-pointer' : 'text-slate-300 cursor-not-allowed'}`}><EditIcon /></button>
+                                <button onClick={() => setPlanIdToDelete(plan.id)} disabled={plan.teacher_name !== loggedInTeacher.teacher_name} className={`p-1.5 rounded-lg ${plan.teacher_name === loggedInTeacher.teacher_name ? 'text-rose-500 bg-rose-50 hover:bg-rose-100 cursor-pointer' : 'text-slate-300 cursor-not-allowed'}`}><TrashIcon /></button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            
+            {totalPages > 1 && (
+              <div className="flex justify-between items-center pt-2">
+                <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="px-3 py-1 border rounded text-xs disabled:opacity-40 cursor-pointer">Previous</button>
+                <span className="text-xs">Page {currentPage} of {totalPages}</span>
+                <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="px-3 py-1 border rounded text-xs disabled:opacity-40 cursor-pointer">Next</button>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function HeadmasterPortal({ isAdminLoggedIn, teachersList, lessonPlans, onLogin, onAddTeacher, onDeleteTeacher, currentFilterMonth, setCurrentFilterMonth, currentFilterWeek, setCurrentFilterWeek }) {
+      const [passwordInput, setPasswordInput] = useState('');
+      const [loginError, setLoginError] = useState('');
+      const [activeOfficeTab, setActiveOfficeTab] = useState('routine');
+
+      const [targetClass, setTargetClass] = useState('');
+      const [targetSection, setTargetSection] = useState('');
+      const [targetShift, setTargetShift] = useState('');
+      const [targetMonth, setTargetMonth] = useState(currentFilterMonth);
+      const [targetWeek, setTargetWeek] = useState(currentFilterWeek);
+
+      const [newTeacherName, setNewTeacherName] = useState('');
+      const [newTeacherId, setNewTeacherId] = useState('');
+      const [newTeacherPass, setNewTeacherPass] = useState('');
+      const [teacherIdToDelete, setTeacherIdToDelete] = useState(null);
+      const [dirAlert, setDirAlert] = useState(null);
+
+      const isSearchParameterSet = !!(targetClass && targetSection && targetShift && targetMonth && targetWeek);
+
+      const filteredRoutinePlans = useMemo(() => {
+        if (!isSearchParameterSet) return [];
+        return lessonPlans.filter(plan => {
+          return plan.class_name === targetClass &&
+                 plan.section === targetSection &&
+                 plan.shift === targetShift &&
+                 (plan.lesson_month || 'January') === targetMonth &&
+                 (plan.lesson_week || 'Week 1') === targetWeek;
+        });
+      }, [lessonPlans, targetClass, targetSection, targetShift, targetMonth, targetWeek, isSearchParameterSet]);
+
+      const handleLoginSubmit = (e) => {
+        e.preventDefault();
+        setLoginError('');
+        const success = onLogin(passwordInput);
+        if (!success) {
+          setLoginError('Passcode invalid! Enter correct system administrator password.');
+        }
+      };
+
+      const handleAddTeacherSubmit = (e) => {
+        e.preventDefault();
+        setDirAlert(null);
+        
+        const nameClean = newTeacherName.trim();
+        const idClean = newTeacherId.trim();
+        const passClean = newTeacherPass.trim();
+
+        if (!nameClean || !idClean || !passClean) return;
+        
+        if (teachersList.some(t => t.teacher_id.toLowerCase() === idClean.toLowerCase())) {
+          setDirAlert({ type: 'error', text: 'Error: This Teacher ID is already registered.' });
+          return;
+        }
+        
+        onAddTeacher(nameClean, idClean, passClean);
+        
+        setNewTeacherName('');
+        setNewTeacherId('');
+        setNewTeacherPass('');
+        setDirAlert({ type: 'success', text: 'Success: Educator credential profile stored.' });
+      };
+
+      if (!isAdminLoggedIn) {
+        return (
+          <div className="max-w-md w-full mx-auto bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 mt-10 text-left space-y-6 shadow-xl animate-fade-in">
+            <h3 className="text-lg font-bold font-display text-slate-900 text-center flex justify-center items-center gap-1.5"><ShieldIcon /> Verification Gate</h3>
+            {loginError && <p className="text-xs text-rose-700 bg-rose-50 p-2 rounded-xl text-center font-bold">{loginError}</p>}
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold block mb-1">Office Password / পাসকোড</label>
+                <input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm" placeholder="e.g. hikma123" required />
+              </div>
+              <button type="submit" className="w-full bg-rose-600 hover:bg-rose-700 font-bold text-white py-3 rounded-xl text-xs sm:text-sm cursor-pointer">Authorize</button>
+            </form>
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-6 animate-fade-in text-left">
+          <div className="flex bg-slate-200 p-1.5 rounded-2xl max-w-md border no-print">
+            <button onClick={() => setActiveOfficeTab('routine')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer ${activeOfficeTab === 'routine' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Check Routine</button>
+            <button onClick={() => setActiveOfficeTab('teachers')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer ${activeOfficeTab === 'teachers' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Teachers List</button>
+          </div>
+
+          {activeOfficeTab === 'routine' ? (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-3xl border space-y-4 no-print">
+                <h3 className="font-bold text-slate-900 flex items-center gap-1.5"><SearchIcon /> Select Routine Filters</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Class</label>
+                    <select value={targetClass} onChange={e => setTargetClass(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Class --</option>
+                      {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Section</label>
+                    <select value={targetSection} onChange={e => setTargetSection(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Section --</option>
+                      {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Shift</label>
+                    <select value={targetShift} onChange={e => setTargetShift(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Shift --</option>
+                      {SHIFTS.map(sh => <option key={sh} value={sh}>{sh} Shift</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Month</label>
+                    <select value={targetMonth} onChange={e => setTargetMonth(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Week</label>
+                    <select value={targetWeek} onChange={e => setTargetWeek(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      {WEEKS.map(w => <option key={w} value={w}>{w}</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {isSearchParameterSet ? (
+                <div className="bg-white rounded-3xl border p-6 sm:p-8 space-y-6 shadow-sm" id="printable-report-card">
+                  <div className="flex md:items-center md:justify-between border-b pb-4 gap-4 no-print flex-wrap">
+                    <h4 className="font-bold text-slate-900">Syllabus Sheet Output</h4>
+                    <button onClick={() => window.print()} className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white font-bold text-xs sm:text-sm rounded-xl cursor-pointer">
+                      <PrinterIcon />
+                      <span>Print Class Routine</span>
+                    </button>
+                  </div>
+
+                  <div className="text-center pb-5 border-b-2 border-slate-800 flex flex-col items-center justify-center">
+                    <div className="mb-3 bg-white p-2 rounded-xl border flex items-center justify-center">
+                      <Logo className="h-[64px] w-[64px]" />
+                    </div>
+                    <h1 className="text-2xl font-black font-display tracking-wide uppercase text-slate-900">Hikma International School</h1>
+                    <h2 className="text-lg font-bold text-slate-700 mt-1">Class Routine</h2>
+                    <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono font-semibold text-slate-600 pt-2">
+                      <span>Class: {targetClass}</span> • <span>Section: {targetSection}</span> • <span>Shift: {targetShift}</span> • <span>{targetMonth} ({targetWeek})</span>
+                    </div>
+                  </div>
+
+                  {filteredRoutinePlans.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 italic font-medium">No classroom routine tasks recorded matching this selection framework.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm border-collapse">
+                        <thead className="bg-slate-50 border-b">
+                          <tr>
+                            <th className="p-4 font-bold">Date</th>
+                            <th className="p-4 font-bold">Educator</th>
+                            <th className="p-4 font-bold">Subject</th>
+                            <th className="p-4 font-bold">Class Work Details</th>
+                            <th className="p-4 font-bold">Assigned Homework</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {filteredRoutinePlans.map(p => (
+                            <tr key={p.id}>
+                              <td className="p-4 whitespace-nowrap"><b>{p.lesson_date}</b></td>
+                              <td className="p-4 font-semibold">{p.teacher_name}</td>
+                              <td className="p-4 font-bold text-slate-800">{p.subject_name}</td>
+                              <td className="p-4 text-xs sm:text-sm whitespace-pre-wrap">{p.class_work}</td>
+                              <td className="p-4 text-xs italic">
+                                {p.homework === 'No Homework' ? <span className="text-slate-300">None</span> : p.homework}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-slate-100 p-8 rounded-3xl text-center text-slate-500 font-medium">Awaiting parameter selection. Please configure active Class, Section, Shift, Month, and Week specifications.</div>
+              )}
+            </div>
+          ) : (
+            <div className="bg-white border p-6 sm:p-8 rounded-3xl space-y-6 max-w-3xl mx-auto shadow-sm">
+              <h3 className="font-bold border-b pb-3 text-slate-900 text-lg">Faculty Management Directory</h3>
+              
+              <form onSubmit={handleAddTeacherSubmit} className="bg-slate-50 p-4 rounded-2xl border space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Register New Teacher Profile</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Full Name</label>
+                    <input type="text" value={newTeacherName} onChange={e => setNewTeacherName(e.target.value)} placeholder="e.g. Tasnim Alom" className="w-full border p-2 rounded-xl text-sm bg-white font-medium" required />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">User Login ID</label>
+                    <input type="text" value={newTeacherId} onChange={e => setNewTeacherId(e.target.value)} placeholder="e.g. t106" className="w-full border p-2 rounded-xl text-sm bg-white font-medium" required />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Secret Password</label>
+                    <input type="text" value={newTeacherPass} onChange={e => setNewTeacherPass(e.target.value)} placeholder="Passcode string" className="w-full border p-2 rounded-xl text-sm bg-white font-medium" required />
+                  </div>
+                </div>
+                <div className="flex justify-end pt-1">
+                  <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer"><PlusIcon /> Save Credentials</button>
+                </div>
+              </form>
+              
+              {dirAlert && (
+                <p className={`p-3 rounded-xl text-xs font-semibold ${dirAlert.type === 'success' ? 'bg-emerald-50 text-emerald-900' : 'bg-rose-50 text-rose-900'}`}>
+                  {dirAlert.text}
+                </p>
+              )}
+              
+              <div className="border rounded-xl overflow-hidden mt-4">
+                <table className="w-full text-left text-sm divide-y">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th className="p-4 font-bold">Teacher Name</th>
+                      <th className="p-4 font-bold">Workspace ID</th>
+                      <th className="p-4 font-bold">Secret Passcode</th>
+                      <th className="p-4 font-bold text-right">Office Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y bg-white">
+                    {teachersList.map((teacher) => (
+                      <tr key={teacher.id}>
+                        <td className="p-4 font-bold text-slate-800">{teacher.teacher_name}</td>
+                        <td className="p-4 font-mono text-xs text-sky-700 bg-sky-50/40 font-bold">{teacher.teacher_id}</td>
+                        <td className="p-4 font-mono text-xs text-slate-600 font-medium">{teacher.passcode}</td>
+                        <td className="p-4 text-right">
+                          {teacherIdToDelete === teacher.id ? (
+                            <div className="inline-flex gap-1.5 items-center">
+                              <button onClick={() => { onDeleteTeacher(teacher.id); setTeacherIdToDelete(null); }} className="bg-rose-600 text-white text-xs px-2 py-1 rounded cursor-pointer font-bold">Confirm</button>
+                              <button onClick={() => setTeacherIdToDelete(null)} className="bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded cursor-pointer font-bold">No</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setTeacherIdToDelete(teacher.id)} className="text-rose-500 hover:text-rose-700 p-1 bg-rose-50 rounded-lg cursor-pointer"><TrashIcon /></button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const rootEl = document.getElementById('root');
+    const root = ReactDOM.createRoot(rootEl);
+    root.render(<App />);
+  </script>
+</body>
+</html>
