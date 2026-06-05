@@ -26,9 +26,90 @@
   </script>
 
   <style>
+    .weekly-lesson-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 10pt;
+      line-height: 1.15;
+    }
+    .weekly-lesson-table th,
+    .weekly-lesson-table td {
+      border: 1px solid #1e293b;
+      padding: 2px 4px;
+      vertical-align: top;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .weekly-lesson-table th {
+      background: #f1f5f9;
+      font-weight: 700;
+      text-align: center;
+      font-size: 9pt;
+      line-height: 1.1;
+      padding: 3px 4px;
+    }
+    .weekly-lesson-table .weekly-date {
+      display: block;
+      font-weight: 700;
+    }
+    .weekly-lesson-table .weekly-day {
+      display: block;
+      font-size: 8pt;
+      font-weight: 500;
+      color: #475569;
+    }
+    .weekly-lesson-table .weekly-entry {
+      margin-bottom: 4px;
+      padding-bottom: 3px;
+      border-bottom: 1px dashed #cbd5e1;
+    }
+    .weekly-lesson-table .weekly-entry:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .weekly-lesson-table .weekly-subject {
+      font-weight: 700;
+      font-size: 9pt;
+      color: #0c4a6e;
+      margin-bottom: 1px;
+    }
+    .weekly-lesson-table .weekly-plan {
+      font-size: 9pt;
+      white-space: pre-wrap;
+      margin-bottom: 1px;
+    }
+    .weekly-lesson-table .weekly-hw {
+      font-size: 8.5pt;
+      font-style: italic;
+      color: #334155;
+    }
+    .weekly-lesson-table .weekly-hw-label {
+      font-weight: 700;
+      font-style: normal;
+    }
+
     @media print {
-      .no-print {
+      .no-print,
+      header,
+      footer,
+      nav {
         display: none !important;
+        visibility: hidden !important;
+      }
+      body * {
+        visibility: hidden;
+      }
+      .printable-document,
+      .printable-document * {
+        visibility: visible;
+      }
+      .printable-document {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
       }
       html, body, #root, #root > div, main {
         background-color: white !important;
@@ -42,6 +123,7 @@
       }
       main {
         width: 100% !important;
+        padding: 0 !important;
       }
       .print-visible {
         display: block !important;
@@ -58,13 +140,47 @@
         overflow: visible !important;
         display: block !important;
       }
-      table {
-        width: 100% !important;
-        table-layout: auto !important;
+      @page {
+        size: A4 landscape;
+        margin: 8mm;
       }
-      tr {
+      .printable-document {
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: white !important;
+        font-size: 10pt !important;
+        line-height: 1.15 !important;
+      }
+      .printable-document .print-report-header {
+        padding-bottom: 4px !important;
+        margin-bottom: 4px !important;
+        border-bottom-width: 1px !important;
+      }
+      .printable-document .print-report-header .print-logo {
+        height: 28px !important;
+        width: 28px !important;
+      }
+      .printable-document .print-report-header h2 {
+        font-size: 11pt !important;
+        margin: 0 !important;
+      }
+      .printable-document .print-report-header p,
+      .printable-document .print-report-header span {
+        font-size: 8pt !important;
+        line-height: 1.1 !important;
+      }
+      .weekly-lesson-table {
         page-break-inside: avoid !important;
         break-inside: avoid !important;
+      }
+      .weekly-lesson-table th,
+      .weekly-lesson-table td {
+        padding: 2px 3px !important;
+        line-height: 1.1 !important;
       }
     }
     .animate-fade-in {
@@ -90,8 +206,49 @@
     const CLASSES = ['Play Group', 'Nursery', 'KG', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'SSC'];
     const SECTIONS = ['A', 'B', 'C', 'Gold', 'Silver'];
     const SHIFTS = ['Morning', 'Day'];
-    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const WEEKS = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
+    const SCHOOL_DAYS = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
+
+    function getDayNameFromDate(dateStr) {
+      if (!dateStr) return '';
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const date = new Date(dateStr + 'T12:00:00');
+      return days[date.getDay()];
+    }
+
+    function formatDisplayDate(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr + 'T12:00:00');
+      return date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function formatShortDate(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr + 'T12:00:00');
+      return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function formatDateRangeLabel(startStr, endStr) {
+      if (!startStr || !endStr) return '';
+      return `${formatShortDate(startStr)} — ${formatShortDate(endStr)}`;
+    }
+
+    function getSchoolDatesInRange(startStr, endStr) {
+      if (!startStr || !endStr) return [];
+      const start = new Date(startStr + 'T12:00:00');
+      const end = new Date(endStr + 'T12:00:00');
+      if (start > end) return [];
+      const dates = [];
+      const cur = new Date(start);
+      while (cur <= end) {
+        const dateStr = cur.toISOString().split('T')[0];
+        const dayName = getDayNameFromDate(dateStr);
+        if (dayName !== 'Friday') {
+          dates.push({ dateStr, dayName });
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+      return dates;
+    }
 
     const SEED_TEACHERS = [
       { id: 'teach_1', teacher_id: 't101', teacher_name: 'Mustafa Rahman', passcode: 'hikma11' },
@@ -110,11 +267,34 @@
         shift: 'Morning',
         subject_name: 'English Writing',
         lesson_date: new Date().toISOString().split('T')[0],
-        lesson_month: 'January',
-        lesson_week: 'Week 1',
         class_work: 'Practiced tracing lowercase letters a to f on the whiteboard. Spelled simple vocabulary: cat, dog, sun.',
         homework: 'Practice writing letters a to f in class script copy twice.',
         created_at: Date.now() - 7200000,
+      }
+    ];
+
+    const SEED_ROUTINES = [
+      {
+        id: 'seed_routine_1',
+        class_name: 'KG',
+        section: 'A',
+        shift: 'Morning',
+        day_name: 'Saturday',
+        teacher_id: 't101',
+        teacher_name: 'Mustafa Rahman',
+        subject_name: 'English Writing',
+        created_at: Date.now() - 7200000
+      },
+      {
+        id: 'seed_routine_2',
+        class_name: 'KG',
+        section: 'A',
+        shift: 'Morning',
+        day_name: 'Saturday',
+        teacher_id: 't102',
+        teacher_name: 'Dr. Fatema Nasrin',
+        subject_name: 'Mathematics',
+        created_at: Date.now() - 7200000
       }
     ];
 
@@ -146,9 +326,34 @@
     function KeyIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>; }
     function DatabaseIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>; }
     function CogIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>; }
+    function UsersIcon() { return <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>; }
+
+    function PrintReportHeader({ title, dateRange, className, section, shift }) {
+      return (
+        <div className="print-report-header border-b-2 border-slate-800 pb-2 mb-2">
+          <div className="flex items-center gap-2">
+            <Logo className="print-logo h-10 w-10 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <h2 className="text-sm font-bold font-display text-slate-900 leading-tight">Hikma International School</h2>
+              <p className="text-xs font-semibold text-sky-800 leading-tight">{title}</p>
+              <div className="flex flex-wrap gap-x-3 gap-y-0 mt-0.5 text-[10px] text-slate-600 font-medium leading-tight">
+                {dateRange && <span>Date Range: <strong className="text-slate-800">{dateRange}</strong></span>}
+                {className && <span>Class: <strong className="text-slate-800">{className}</strong></span>}
+                {section && <span>Section: <strong className="text-slate-800">{section}</strong></span>}
+                {shift && <span>Shift: <strong className="text-slate-800">{shift}</strong></span>}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     function App() {
-      const [activeTab, setActiveTab] = useState('teacher');
+      const [activeTab, setActiveTab] = useState(() => {
+        if (localStorage.getItem('hikma_logged_in_coordinator_v2')) return 'coordinator';
+        if (localStorage.getItem('hikma_admin_auth') === 'true') return 'admin';
+        return 'teacher';
+      });
       
       const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(() => {
         return localStorage.getItem('hikma_admin_auth') === 'true';
@@ -157,6 +362,21 @@
       const [loggedInTeacher, setLoggedInTeacher] = useState(() => {
         const cached = localStorage.getItem('hikma_logged_in_teacher_v2');
         return cached ? JSON.parse(cached) : null;
+      });
+
+      const [loggedInCoordinator, setLoggedInCoordinator] = useState(() => {
+        const cached = localStorage.getItem('hikma_logged_in_coordinator_v2');
+        return cached ? JSON.parse(cached) : null;
+      });
+
+      const [coordinators, setCoordinators] = useState(() => {
+        const cached = localStorage.getItem('hikma_coordinators_v2');
+        return cached ? JSON.parse(cached) : [];
+      });
+
+      const [deletedCoordinators, setDeletedCoordinators] = useState(() => {
+        const cached = localStorage.getItem('hikma_deleted_coordinators_queue');
+        return cached ? JSON.parse(cached) : [];
       });
 
       const [teachers, setTeachers] = useState(() => {
@@ -169,8 +389,25 @@
         return cached ? JSON.parse(cached) : SEED_PLANS;
       });
 
-      const [currentFilterMonth, setCurrentFilterMonth] = useState('January');
-      const [currentFilterWeek, setCurrentFilterWeek] = useState('Week 1');
+      const [routines, setRoutines] = useState(() => {
+        const cached = localStorage.getItem('hikma_routines_v2');
+        return cached ? JSON.parse(cached) : SEED_ROUTINES;
+      });
+
+      const [deletedPlans, setDeletedPlans] = useState(() => {
+        const cached = localStorage.getItem('hikma_deleted_plans_queue');
+        return cached ? JSON.parse(cached) : [];
+      });
+
+      const [deletedTeachers, setDeletedTeachers] = useState(() => {
+        const cached = localStorage.getItem('hikma_deleted_teachers_queue');
+        return cached ? JSON.parse(cached) : [];
+      });
+
+      const [deletedRoutines, setDeletedRoutines] = useState(() => {
+        const cached = localStorage.getItem('hikma_deleted_routines_queue');
+        return cached ? JSON.parse(cached) : [];
+      });
 
       // Database Sync State & Config
       const [supabaseConfig, setSupabaseConfig] = useState(() => {
@@ -185,16 +422,6 @@
       const [syncStatus, setSyncStatus] = useState('unconfigured'); // 'synced' | 'syncing' | 'unsynced' | 'disconnected' | 'unconfigured' | 'error'
       const [isSyncing, setIsSyncing] = useState(false);
       const [showDbModal, setShowDbModal] = useState(false);
-
-      const [deletedPlans, setDeletedPlans] = useState(() => {
-        const cached = localStorage.getItem('hikma_deleted_plans_queue');
-        return cached ? JSON.parse(cached) : [];
-      });
-
-      const [deletedTeachers, setDeletedTeachers] = useState(() => {
-        const cached = localStorage.getItem('hikma_deleted_teachers_queue');
-        return cached ? JSON.parse(cached) : [];
-      });
 
       const supabase = useMemo(() => {
         if (supabaseConfig.url && supabaseConfig.key) {
@@ -217,6 +444,22 @@
       }, [plans]);
 
       useEffect(() => {
+        localStorage.setItem('hikma_routines_v2', JSON.stringify(routines));
+      }, [routines]);
+
+      useEffect(() => {
+        localStorage.setItem('hikma_coordinators_v2', JSON.stringify(coordinators));
+      }, [coordinators]);
+
+      useEffect(() => {
+        if (loggedInCoordinator) {
+          localStorage.setItem('hikma_logged_in_coordinator_v2', JSON.stringify(loggedInCoordinator));
+        } else {
+          localStorage.removeItem('hikma_logged_in_coordinator_v2');
+        }
+      }, [loggedInCoordinator]);
+
+      useEffect(() => {
         localStorage.setItem('hikma_admin_auth', String(isAdminLoggedIn));
       }, [isAdminLoggedIn]);
 
@@ -235,6 +478,14 @@
       useEffect(() => {
         localStorage.setItem('hikma_deleted_teachers_queue', JSON.stringify(deletedTeachers));
       }, [deletedTeachers]);
+
+      useEffect(() => {
+        localStorage.setItem('hikma_deleted_routines_queue', JSON.stringify(deletedRoutines));
+      }, [deletedRoutines]);
+
+      useEffect(() => {
+        localStorage.setItem('hikma_deleted_coordinators_queue', JSON.stringify(deletedCoordinators));
+      }, [deletedCoordinators]);
 
       // Online status listener
       useEffect(() => {
@@ -256,8 +507,12 @@
         if (!onlineStatus) {
           const hasUnsynced = plans.some(p => p._dirty) || 
                               teachers.some(t => t._dirty) || 
+                              routines.some(r => r._dirty) || 
+                              coordinators.some(c => c._dirty) ||
                               deletedPlans.length > 0 || 
-                              deletedTeachers.length > 0;
+                              deletedTeachers.length > 0 ||
+                              deletedRoutines.length > 0 ||
+                              deletedCoordinators.length > 0;
           return hasUnsynced ? 'offline-unsynced' : 'disconnected';
         }
         if (isSyncing) {
@@ -265,13 +520,17 @@
         }
         const hasUnsynced = plans.some(p => p._dirty) || 
                             teachers.some(t => t._dirty) || 
+                            routines.some(r => r._dirty) || 
+                            coordinators.some(c => c._dirty) ||
                             deletedPlans.length > 0 || 
-                            deletedTeachers.length > 0;
+                            deletedTeachers.length > 0 ||
+                            deletedRoutines.length > 0 ||
+                            deletedCoordinators.length > 0;
         if (hasUnsynced) {
           return 'unsynced';
         }
         return syncStatus === 'error' ? 'error' : 'synced';
-      }, [supabaseConfig, onlineStatus, isSyncing, plans, teachers, deletedPlans, deletedTeachers, syncStatus]);
+      }, [supabaseConfig, onlineStatus, isSyncing, plans, teachers, routines, coordinators, deletedPlans, deletedTeachers, deletedRoutines, deletedCoordinators, syncStatus]);
 
       // Supabase Synchronization Engine
       const syncWithSupabase = async (forceConfig = null) => {
@@ -296,8 +555,12 @@
           // Read absolute current states from localStorage to bypass react closure lag
           let currentPlans = JSON.parse(localStorage.getItem('hikma_lessons_plans_v2') || '[]');
           let currentTeachers = JSON.parse(localStorage.getItem('hikma_teachers_roster_v2') || '[]');
+          let currentRoutines = JSON.parse(localStorage.getItem('hikma_routines_v2') || '[]');
+          let currentCoordinators = JSON.parse(localStorage.getItem('hikma_coordinators_v2') || '[]');
           let currentDeletedPlans = JSON.parse(localStorage.getItem('hikma_deleted_plans_queue') || '[]');
           let currentDeletedTeachers = JSON.parse(localStorage.getItem('hikma_deleted_teachers_queue') || '[]');
+          let currentDeletedRoutines = JSON.parse(localStorage.getItem('hikma_deleted_routines_queue') || '[]');
+          let currentDeletedCoordinators = JSON.parse(localStorage.getItem('hikma_deleted_coordinators_queue') || '[]');
 
           // 1. Process plan deletions
           const plansToDelete = [...currentDeletedPlans];
@@ -325,10 +588,36 @@
             }
           }
 
+          // 2.5 Process routine deletions
+          const routinesToDelete = [...currentDeletedRoutines];
+          for (const routineId of routinesToDelete) {
+            const { error } = await client.from('hikma_routines').delete().eq('id', routineId);
+            if (!error) {
+              currentDeletedRoutines = currentDeletedRoutines.filter(id => id !== routineId);
+              localStorage.setItem('hikma_deleted_routines_queue', JSON.stringify(currentDeletedRoutines));
+              setDeletedRoutines(currentDeletedRoutines);
+            } else {
+              throw error;
+            }
+          }
+
+          // 2.6 Process coordinator deletions
+          const coordinatorsToDelete = [...currentDeletedCoordinators];
+          for (const coordId of coordinatorsToDelete) {
+            const { error } = await client.from('hikma_coordinators').delete().eq('id', coordId);
+            if (!error) {
+              currentDeletedCoordinators = currentDeletedCoordinators.filter(id => id !== coordId);
+              localStorage.setItem('hikma_deleted_coordinators_queue', JSON.stringify(currentDeletedCoordinators));
+              setDeletedCoordinators(currentDeletedCoordinators);
+            } else if (error.code !== '42P01') {
+              throw error;
+            }
+          }
+
           // 3. Sync dirty plan additions/updates
           const dirtyPlans = currentPlans.filter(p => p._dirty);
           for (const p of dirtyPlans) {
-            const { _dirty, ...cleanPlan } = p;
+            const { _dirty, lesson_month, lesson_week, ...cleanPlan } = p;
             const { error } = await client.from('hikma_plans').upsert(cleanPlan);
             if (!error) {
               currentPlans = currentPlans.map(item => item.id === p.id ? cleanPlan : item);
@@ -353,6 +642,34 @@
             }
           }
 
+          // 4.5 Sync dirty routine additions/updates
+          const dirtyRoutines = currentRoutines.filter(r => r._dirty);
+          for (const r of dirtyRoutines) {
+            const { _dirty, ...cleanRoutine } = r;
+            const { error } = await client.from('hikma_routines').upsert(cleanRoutine);
+            if (!error) {
+              currentRoutines = currentRoutines.map(item => item.id === r.id ? cleanRoutine : item);
+              localStorage.setItem('hikma_routines_v2', JSON.stringify(currentRoutines));
+              setRoutines(currentRoutines);
+            } else {
+              throw error;
+            }
+          }
+
+          // 4.6 Sync dirty coordinator additions/updates
+          const dirtyCoordinators = currentCoordinators.filter(c => c._dirty);
+          for (const c of dirtyCoordinators) {
+            const { _dirty, ...cleanCoord } = c;
+            const { error } = await client.from('hikma_coordinators').upsert(cleanCoord);
+            if (!error) {
+              currentCoordinators = currentCoordinators.map(item => item.id === c.id ? cleanCoord : item);
+              localStorage.setItem('hikma_coordinators_v2', JSON.stringify(currentCoordinators));
+              setCoordinators(currentCoordinators);
+            } else if (error.code !== '42P01') {
+              throw error;
+            }
+          }
+
           // 5. Download latest data from cloud database
           const { data: serverTeachers, error: fetchTeachersError } = await client
             .from('hikma_teachers')
@@ -367,9 +684,27 @@
 
           if (fetchPlansError) throw fetchPlansError;
 
+          const { data: serverRoutines, error: fetchRoutinesError } = await client
+            .from('hikma_routines')
+            .select('*');
+
+          if (fetchRoutinesError) throw fetchRoutinesError;
+
+          let serverCoordinators = [];
+          const { data: fetchedCoordinators, error: fetchCoordinatorsError } = await client
+            .from('hikma_coordinators')
+            .select('*');
+          if (!fetchCoordinatorsError) {
+            serverCoordinators = fetchedCoordinators || [];
+          } else if (fetchCoordinatorsError.code !== '42P01') {
+            throw fetchCoordinatorsError;
+          }
+
           // Re-fetch local cache to ensure no overlap during operations
           currentPlans = JSON.parse(localStorage.getItem('hikma_lessons_plans_v2') || '[]');
           currentTeachers = JSON.parse(localStorage.getItem('hikma_teachers_roster_v2') || '[]');
+          currentRoutines = JSON.parse(localStorage.getItem('hikma_routines_v2') || '[]');
+          currentCoordinators = JSON.parse(localStorage.getItem('hikma_coordinators_v2') || '[]');
 
           const dirtyTeachersMap = new Map(currentTeachers.filter(t => t._dirty).map(t => [t.id, t]));
           const mergedTeachers = serverTeachers.map(st => {
@@ -393,13 +728,39 @@
             }
           });
 
+          const dirtyRoutinesMap = new Map(currentRoutines.filter(r => r._dirty).map(r => [r.id, r]));
+          const mergedRoutines = serverRoutines.map(sr => {
+            return dirtyRoutinesMap.has(sr.id) ? dirtyRoutinesMap.get(sr.id) : sr;
+          });
+          const serverRoutineIds = new Set(serverRoutines.map(sr => sr.id));
+          currentRoutines.filter(r => r._dirty).forEach(dr => {
+            if (!serverRoutineIds.has(dr.id)) {
+              mergedRoutines.push(dr);
+            }
+          });
+
+          const dirtyCoordinatorsMap = new Map(currentCoordinators.filter(c => c._dirty).map(c => [c.id, c]));
+          const mergedCoordinators = serverCoordinators.map(sc => {
+            return dirtyCoordinatorsMap.has(sc.id) ? dirtyCoordinatorsMap.get(sc.id) : sc;
+          });
+          const serverCoordinatorIds = new Set(serverCoordinators.map(sc => sc.id));
+          currentCoordinators.filter(c => c._dirty).forEach(dc => {
+            if (!serverCoordinatorIds.has(dc.id)) {
+              mergedCoordinators.push(dc);
+            }
+          });
+
           mergedPlans.sort((a, b) => b.created_at - a.created_at);
 
           localStorage.setItem('hikma_teachers_roster_v2', JSON.stringify(mergedTeachers));
           localStorage.setItem('hikma_lessons_plans_v2', JSON.stringify(mergedPlans));
+          localStorage.setItem('hikma_routines_v2', JSON.stringify(mergedRoutines));
+          localStorage.setItem('hikma_coordinators_v2', JSON.stringify(mergedCoordinators));
           
           setTeachers(mergedTeachers);
           setPlans(mergedPlans);
+          setRoutines(mergedRoutines);
+          setCoordinators(mergedCoordinators);
           setSyncStatus('synced');
         } catch (e) {
           console.error("Database synchronization failed:", e);
@@ -423,6 +784,16 @@
         setPlans(prev => {
           const updated = prev.map(p => ({ ...p, _dirty: true }));
           localStorage.setItem('hikma_lessons_plans_v2', JSON.stringify(updated));
+          return updated;
+        });
+        setRoutines(prev => {
+          const updated = prev.map(r => ({ ...r, _dirty: true }));
+          localStorage.setItem('hikma_routines_v2', JSON.stringify(updated));
+          return updated;
+        });
+        setCoordinators(prev => {
+          const updated = prev.map(c => ({ ...c, _dirty: true }));
+          localStorage.setItem('hikma_coordinators_v2', JSON.stringify(updated));
           return updated;
         });
 
@@ -478,6 +849,33 @@
         setTimeout(() => syncWithSupabase(), 100);
       };
 
+      const handleAddRoutine = (newRoutine) => {
+        const routineWithDirty = { ...newRoutine, _dirty: true };
+        setRoutines((prev) => {
+          const updated = [...prev, routineWithDirty];
+          localStorage.setItem('hikma_routines_v2', JSON.stringify(updated));
+          return updated;
+        });
+        setTimeout(() => syncWithSupabase(), 100);
+      };
+
+      const handleDeleteRoutine = (id) => {
+        const targetRoutine = routines.find(r => r.id === id);
+        if (targetRoutine && !targetRoutine._dirty) {
+          setDeletedRoutines(prev => {
+            const updated = [...prev, id];
+            localStorage.setItem('hikma_deleted_routines_queue', JSON.stringify(updated));
+            return updated;
+          });
+        }
+        setRoutines((prev) => {
+          const updated = prev.filter((r) => r.id !== id);
+          localStorage.setItem('hikma_routines_v2', JSON.stringify(updated));
+          return updated;
+        });
+        setTimeout(() => syncWithSupabase(), 100);
+      };
+
       const handleAddTeacher = (name, customId, password) => {
         const newTeach = {
           id: 'teach_' + Date.now(),
@@ -511,9 +909,44 @@
         setTimeout(() => syncWithSupabase(), 100);
       };
 
+      const handleAddCoordinator = (name, customId, password) => {
+        const newCoord = {
+          id: 'coord_' + Date.now(),
+          coordinator_id: customId.trim(),
+          coordinator_name: name.trim(),
+          passcode: password.trim(),
+          _dirty: true
+        };
+        setCoordinators((prev) => {
+          const updated = [...prev, newCoord];
+          localStorage.setItem('hikma_coordinators_v2', JSON.stringify(updated));
+          return updated;
+        });
+        setTimeout(() => syncWithSupabase(), 100);
+      };
+
+      const handleDeleteCoordinator = (id) => {
+        const target = coordinators.find(c => c.id === id);
+        if (target && !target._dirty) {
+          setDeletedCoordinators(prev => {
+            const updated = [...prev, id];
+            localStorage.setItem('hikma_deleted_coordinators_queue', JSON.stringify(updated));
+            return updated;
+          });
+        }
+        setCoordinators((prev) => {
+          const updated = prev.filter((c) => c.id !== id);
+          localStorage.setItem('hikma_coordinators_v2', JSON.stringify(updated));
+          return updated;
+        });
+        setTimeout(() => syncWithSupabase(), 100);
+      };
+
       const handleAdminLogin = (passcode) => {
         if (passcode.trim() === 'hikma123') {
           setIsAdminLoggedIn(true);
+          setLoggedInCoordinator(null);
+          setLoggedInTeacher(null);
           return true;
         }
         return false;
@@ -533,6 +966,28 @@
 
         if (matched) {
           setLoggedInTeacher(matched);
+          setLoggedInCoordinator(null);
+          return true;
+        }
+        return false;
+      };
+
+      const handleCoordinatorLogin = (userId, password) => {
+        if (!userId || !password) return false;
+
+        const matched = coordinators.find((c) => {
+          const storedId = String(c.coordinator_id).trim().toLowerCase();
+          const providedId = String(userId).trim().toLowerCase();
+          const storedPass = String(c.passcode).trim();
+          const providedPass = String(password).trim();
+          return storedId === providedId && storedPass === providedPass;
+        });
+
+        if (matched) {
+          setLoggedInCoordinator(matched);
+          setLoggedInTeacher(null);
+          setIsAdminLoggedIn(false);
+          setActiveTab('coordinator');
           return true;
         }
         return false;
@@ -541,6 +996,7 @@
       const handleLogout = () => {
         setIsAdminLoggedIn(false);
         setLoggedInTeacher(null);
+        setLoggedInCoordinator(null);
         setActiveTab('teacher');
       };
 
@@ -557,7 +1013,7 @@
                     Hikma International School
                   </h1>
                   <p className="text-xs sm:text-sm text-sky-400 font-medium mt-1">
-                    Weekly Lesson Plan Portal
+                    Daily Lesson Plan Portal
                   </p>
                 </div>
               </div>
@@ -652,7 +1108,19 @@
                   <span>Headmaster Office</span>
                 </button>
 
-                {(isAdminLoggedIn || loggedInTeacher) && (
+                <button
+                  onClick={() => setActiveTab('coordinator')}
+                  className={`flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all min-h-[44px] cursor-pointer flex-1 sm:flex-initial ${
+                    activeTab === 'coordinator'
+                      ? 'bg-violet-600 text-white shadow-lg border border-violet-500'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  <UsersIcon />
+                  <span>Coordinator</span>
+                </button>
+
+                {(isAdminLoggedIn || loggedInTeacher || loggedInCoordinator) && (
                   <button
                     onClick={handleLogout}
                     className="px-4 py-2.5 bg-slate-800 hover:bg-rose-950/40 text-rose-400 font-bold rounded-xl text-sm transition-all border border-slate-700 min-h-[44px] flex items-center justify-center gap-1.5 cursor-pointer"
@@ -675,23 +1143,29 @@
                 onAddPlan={handleAddPlan}
                 onUpdatePlan={handleUpdatePlan}
                 onDeletePlan={handleDeletePlan}
-                currentFilterMonth={currentFilterMonth}
-                setCurrentFilterMonth={setCurrentFilterMonth}
-                currentFilterWeek={currentFilterWeek}
-                setCurrentFilterWeek={setCurrentFilterWeek}
+                routines={routines}
+              />
+            ) : activeTab === 'coordinator' ? (
+              <CoordinatorPortal
+                loggedInCoordinator={loggedInCoordinator}
+                onCoordinatorLogin={handleCoordinatorLogin}
+                teachersList={teachers}
+                lessonPlans={plans}
+                routines={routines}
+                onAddRoutine={handleAddRoutine}
+                onDeleteRoutine={handleDeleteRoutine}
+                onAddTeacher={handleAddTeacher}
+                onDeleteTeacher={handleDeleteTeacher}
               />
             ) : (
               <HeadmasterPortal
                 isAdminLoggedIn={isAdminLoggedIn}
-                teachersList={teachers}
+                coordinatorsList={coordinators}
                 lessonPlans={plans}
                 onLogin={handleAdminLogin}
-                onAddTeacher={handleAddTeacher}
-                onDeleteTeacher={handleDeleteTeacher}
-                currentFilterMonth={currentFilterMonth}
-                setCurrentFilterMonth={setCurrentFilterMonth}
-                currentFilterWeek={currentFilterWeek}
-                setCurrentFilterWeek={setCurrentFilterWeek}
+                onAddCoordinator={handleAddCoordinator}
+                onDeleteCoordinator={handleDeleteCoordinator}
+                routines={routines}
                 supabase={supabase}
               />
             )}
@@ -792,7 +1266,7 @@
       );
     }
 
-    function TeacherPortal({ loggedInTeacher, onTeacherLogin, teachersList, lessonPlans, onAddPlan, onUpdatePlan, onDeletePlan, currentFilterMonth, setCurrentFilterMonth, currentFilterWeek, setCurrentFilterWeek }) {
+    function TeacherPortal({ loggedInTeacher, onTeacherLogin, teachersList, lessonPlans, onAddPlan, onUpdatePlan, onDeletePlan, routines }) {
       const [uIdInput, setUIdInput] = useState('');
       const [uPassInput, setUPassInput] = useState('');
       const [loginError, setLoginError] = useState('');
@@ -803,10 +1277,7 @@
       const [shift, setShift] = useState('Morning');
       const [subjectName, setSubjectName] = useState('');
       const [classDate, setClassDate] = useState(() => new Date().toISOString().split('T')[0]);
-      
-      const [lessonMonth, setLessonMonth] = useState(currentFilterMonth);
-      const [lessonWeek, setLessonWeek] = useState(currentFilterWeek);
-      
+
       const [classWork, setClassWork] = useState('');
       const [hasHomework, setHasHomework] = useState(false);
       const [homeworkText, setHomeworkText] = useState('');
@@ -818,7 +1289,18 @@
       const [errorMsg, setErrorMsg] = useState('');
       const [searchQuery, setSearchQuery] = useState('');
       const [filterClass, setFilterClass] = useState('All');
+      const [filterDate, setFilterDate] = useState('');
       const [currentPage, setCurrentPage] = useState(1);
+
+      const selectedDayName = useMemo(() => getDayNameFromDate(classDate), [classDate]);
+
+      const myAssignmentsForDate = useMemo(() => {
+        if (!loggedInTeacher || !classDate) return [];
+        return routines.filter(r =>
+          r.teacher_id === loggedInTeacher.teacher_id &&
+          r.day_name === selectedDayName
+        );
+      }, [routines, loggedInTeacher, classDate, selectedDayName]);
 
       useEffect(() => {
         if (loggedInTeacher) {
@@ -827,13 +1309,6 @@
           setSelectedTeacher('');
         }
       }, [loggedInTeacher]);
-
-      useEffect(() => {
-        if (!editingPlanId) {
-          setLessonMonth(currentFilterMonth);
-          setLessonWeek(currentFilterWeek);
-        }
-      }, [currentFilterMonth, currentFilterWeek, editingPlanId]);
 
       const handleLoginSubmit = (e) => {
         e.preventDefault();
@@ -844,6 +1319,13 @@
         }
       };
 
+      const applyAssignment = (assignment) => {
+        setSelectedClass(assignment.class_name);
+        setSection(assignment.section);
+        setShift(assignment.shift);
+        setSubjectName(assignment.subject_name);
+      };
+
       const handleEditClick = (plan) => {
         setEditingPlanId(plan.id);
         setSelectedTeacher(plan.teacher_name);
@@ -852,10 +1334,8 @@
         setShift(plan.shift);
         setSubjectName(plan.subject_name);
         setClassDate(plan.lesson_date);
-        setLessonMonth(plan.lesson_month || 'January');
-        setLessonWeek(plan.lesson_week || 'Week 1');
         setClassWork(plan.class_work);
-        
+
         if (plan.homework && plan.homework !== 'No Homework') {
           setHasHomework(true);
           setHomeworkText(plan.homework);
@@ -864,6 +1344,14 @@
           setHomeworkText('');
         }
         window.scrollTo({ top: 100, behavior: 'smooth' });
+      };
+
+      const handleCancelEdit = () => {
+        setEditingPlanId(null);
+        setSubjectName('');
+        setClassWork('');
+        setHasHomework(false);
+        setHomeworkText('');
       };
 
       const handleFormSubmit = (e) => {
@@ -879,11 +1367,11 @@
           shift,
           subject_name: subjectName.trim(),
           lesson_date: classDate,
-          lesson_month: lessonMonth,
-          lesson_week: lessonWeek,
           class_work: classWork.trim(),
           homework: hasHomework && homeworkText.trim() ? homeworkText.trim() : 'No Homework',
-          created_at: Date.now()
+          created_at: editingPlanId
+            ? (lessonPlans.find(p => p.id === editingPlanId)?.created_at || Date.now())
+            : Date.now()
         };
 
         if (editingPlanId) {
@@ -902,16 +1390,17 @@
       };
 
       const filteredTeacherPlans = useMemo(() => {
-        return lessonPlans.filter(plan => {
-          const matchSearch = plan.subject_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              plan.teacher_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                              plan.class_work.toLowerCase().includes(searchQuery.toLowerCase());
-          const matchClass = filterClass === 'All' || plan.class_name === filterClass;
-          const matchMonth = (plan.lesson_month || 'January') === currentFilterMonth;
-          const matchWeek = (plan.lesson_week || 'Week 1') === currentFilterWeek;
-          return matchSearch && matchClass && matchMonth && matchWeek;
-        });
-      }, [lessonPlans, searchQuery, filterClass, currentFilterMonth, currentFilterWeek]);
+        return lessonPlans
+          .filter(plan => plan.teacher_name === loggedInTeacher?.teacher_name)
+          .filter(plan => {
+            const matchSearch = plan.subject_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                plan.class_work.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchClass = filterClass === 'All' || plan.class_name === filterClass;
+            const matchDate = !filterDate || plan.lesson_date === filterDate;
+            return matchSearch && matchClass && matchDate;
+          })
+          .sort((a, b) => b.lesson_date.localeCompare(a.lesson_date) || b.created_at - a.created_at);
+      }, [lessonPlans, loggedInTeacher, searchQuery, filterClass, filterDate]);
 
       const paginatedPlans = useMemo(() => {
         const startIdx = (currentPage - 1) * 10;
@@ -989,23 +1478,37 @@
                   <div>
                     <label className="text-xs font-semibold text-slate-600 block mb-1">Date</label>
                     <input type="date" value={classDate} onChange={e => setClassDate(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11" required />
+                    {selectedDayName && (
+                      <p className="text-[11px] font-bold text-sky-700 mt-1.5 bg-sky-50 border border-sky-100 px-2 py-1 rounded-lg inline-block">
+                        Day: {selectedDayName}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Syllabus Month</label>
-                    <select value={lessonMonth} onChange={e => setLessonMonth(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11 cursor-pointer">
-                      {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
+                {myAssignmentsForDate.length > 0 && (
+                  <div className="bg-sky-50 border border-sky-100 rounded-2xl p-4 space-y-2">
+                    <p className="text-xs font-bold text-sky-900">Your assigned classes for {selectedDayName} (from school routine):</p>
+                    <div className="flex flex-wrap gap-2">
+                      {myAssignmentsForDate.map(a => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => applyAssignment(a)}
+                          className="text-xs font-semibold bg-white border border-sky-200 text-sky-800 px-3 py-1.5 rounded-xl hover:bg-sky-100 cursor-pointer transition-all"
+                        >
+                          Class {a.class_name} ({a.section}) · {a.shift} · {a.subject_name}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Syllabus Week</label>
-                    <select value={lessonWeek} onChange={e => setLessonWeek(e.target.value)} className="w-full bg-slate-50 border px-3 py-2 rounded-xl text-sm h-11 cursor-pointer">
-                      {WEEKS.map(w => <option key={w} value={w}>{w}</option>)}
-                    </select>
-                  </div>
-                </div>
+                )}
+
+                {selectedDayName === 'Friday' && (
+                  <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-100 p-3 rounded-xl">
+                    Friday is a weekly holiday. No routine assignments expected for this date.
+                  </p>
+                )}
 
                 <div>
                   <label className="text-xs font-semibold text-slate-600 block mb-1">Class Work Details</label>
@@ -1025,14 +1528,21 @@
                   )}
                 </div>
 
-                <div className="flex justify-between items-center pt-2">
+                <div className="flex justify-between items-center pt-2 gap-3 flex-wrap">
                   <div className="flex-grow">
                     {successMsg && <div className="text-emerald-800 bg-emerald-50 text-xs p-3 rounded-xl inline-block">{successMsg}</div>}
                     {errorMsg && <div className="text-rose-800 bg-rose-50 text-xs p-3 rounded-xl inline-block">{errorMsg}</div>}
                   </div>
-                  <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-xl text-sm cursor-pointer">
-                    {editingPlanId ? 'Save Update' : 'Submit Plan'}
-                  </button>
+                  <div className="flex gap-2">
+                    {editingPlanId && (
+                      <button type="button" onClick={handleCancelEdit} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 px-6 rounded-xl text-sm cursor-pointer">
+                        Cancel Edit
+                      </button>
+                    )}
+                    <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-xl text-sm cursor-pointer">
+                      {editingPlanId ? 'Save Update' : 'Submit Plan'}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
@@ -1047,24 +1557,16 @@
 
           <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">Your Activity Logs</h3>
-              <div className="flex gap-2">
-                <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search..." className="border px-3 py-1.5 rounded-xl text-xs bg-slate-50 w-44" />
-                <select value={filterClass} onChange={e => setFilterClass(e.target.value)} className="border rounded-xl text-xs bg-slate-50">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">Your Lesson Plans</h3>
+              <div className="flex gap-2 flex-wrap">
+                <input type="text" value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }} placeholder="Search subject or work..." className="border px-3 py-1.5 rounded-xl text-xs bg-slate-50 w-44" />
+                <input type="date" value={filterDate} onChange={e => { setFilterDate(e.target.value); setCurrentPage(1); }} className="border px-3 py-1.5 rounded-xl text-xs bg-slate-50" title="Filter by date" />
+                {filterDate && (
+                  <button onClick={() => { setFilterDate(''); setCurrentPage(1); }} className="text-xs font-bold text-slate-500 hover:text-slate-800 px-2 cursor-pointer">Clear date</button>
+                )}
+                <select value={filterClass} onChange={e => { setFilterClass(e.target.value); setCurrentPage(1); }} className="border rounded-xl text-xs bg-slate-50 px-2 py-1.5">
                   <option value="All">All Classes</option>
                   {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-slate-50 p-4 rounded-xl border text-sm no-print">
-              <span className="font-bold text-slate-700 shrink-0">Display Active Filter:</span>
-              <div className="flex flex-wrap gap-2 w-full">
-                <select value={currentFilterMonth} onChange={(e) => setCurrentFilterMonth(e.target.value)} className="bg-white border rounded-xl px-3 py-1.5 text-xs font-bold cursor-pointer">
-                  {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-                <select value={currentFilterWeek} onChange={(e) => setCurrentFilterWeek(e.target.value)} className="bg-white border rounded-xl px-3 py-1.5 text-xs font-bold cursor-pointer">
-                  {WEEKS.map(w => <option key={w} value={w}>{w}</option>)}
                 </select>
               </div>
             </div>
@@ -1073,8 +1575,8 @@
               <table className="w-full text-left text-sm border-collapse">
                 <thead className="bg-slate-50">
                   <tr>
-                    <th className="p-4 font-bold border-b">Schedule / Term</th>
-                    <th className="p-4 font-bold border-b">Subject</th>
+                    <th className="p-4 font-bold border-b">Date</th>
+                    <th className="p-4 font-bold border-b">Class / Subject</th>
                     <th className="p-4 font-bold border-b">Class Work Details</th>
                     <th className="p-4 font-bold border-b">Homework Task</th>
                     <th className="p-4 font-bold border-b text-center">Actions</th>
@@ -1083,21 +1585,20 @@
                 <tbody className="divide-y">
                   {paginatedPlans.length === 0 ? (
                     <tr>
-                      <td colSpan="5" className="p-8 text-center text-slate-400">No plans recorded matching this timeline filter.</td>
+                      <td colSpan="5" className="p-8 text-center text-slate-400">No lesson plans recorded yet.</td>
                     </tr>
                   ) : (
                     paginatedPlans.map(plan => (
                       <tr key={plan.id}>
                         <td className="p-4">
                           <b className="text-slate-800 text-xs block">{plan.lesson_date}</b>
-                          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 border px-1.5 py-0.5 rounded mt-1 inline-block">
-                            {plan.lesson_month || 'January'} • {plan.lesson_week || 'Week 1'}
+                          <span className="text-[11px] font-semibold text-sky-700 bg-sky-50 border border-sky-100 px-1.5 py-0.5 rounded mt-1 inline-block">
+                            {getDayNameFromDate(plan.lesson_date)}
                           </span>
-                          <div className="text-xs text-slate-400 mt-1 font-medium">{plan.teacher_name}</div>
                         </td>
                         <td className="p-4">
                           <span className="bg-sky-50 text-sky-800 text-[10px] font-bold px-2 py-0.5 rounded border">
-                            Class {plan.class_name} ({plan.section})
+                            Class {plan.class_name} ({plan.section}) · {plan.shift}
                           </span>
                           <div className="font-bold text-slate-700 mt-1">{plan.subject_name}</div>
                         </td>
@@ -1192,18 +1693,40 @@ CREATE TABLE IF NOT EXISTS public.hikma_plans (
   shift TEXT NOT NULL,
   subject_name TEXT NOT NULL,
   lesson_date TEXT NOT NULL,
-  lesson_month TEXT NOT NULL,
-  lesson_week TEXT NOT NULL,
   class_work TEXT NOT NULL,
   homework TEXT NOT NULL,
   created_at BIGINT DEFAULT EXTRACT(epoch FROM now()) * 1000
 );
 
--- 3. Enable RLS
+-- 3. Create Class Routine Table
+CREATE TABLE IF NOT EXISTS public.hikma_routines (
+  id TEXT PRIMARY KEY,
+  class_name TEXT NOT NULL,
+  section TEXT NOT NULL,
+  shift TEXT NOT NULL,
+  day_name TEXT NOT NULL,
+  teacher_id TEXT NOT NULL,
+  teacher_name TEXT NOT NULL,
+  subject_name TEXT NOT NULL,
+  created_at BIGINT DEFAULT EXTRACT(epoch FROM now()) * 1000
+);
+
+-- 4. Create Coordinators Table
+CREATE TABLE IF NOT EXISTS public.hikma_coordinators (
+  id TEXT PRIMARY KEY,
+  coordinator_id TEXT NOT NULL UNIQUE,
+  coordinator_name TEXT NOT NULL,
+  passcode TEXT NOT NULL,
+  created_at BIGINT DEFAULT EXTRACT(epoch FROM now()) * 1000
+);
+
+-- 5. Enable RLS
 ALTER TABLE public.hikma_teachers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hikma_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hikma_routines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hikma_coordinators ENABLE ROW LEVEL SECURITY;
 
--- 4. Enable Public Access Policies
+-- 6. Enable Public Access Policies
 CREATE POLICY "Allow public read" ON public.hikma_teachers FOR SELECT USING (true);
 CREATE POLICY "Allow public insert" ON public.hikma_teachers FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update" ON public.hikma_teachers FOR UPDATE USING (true);
@@ -1212,7 +1735,21 @@ CREATE POLICY "Allow public delete" ON public.hikma_teachers FOR DELETE USING (t
 CREATE POLICY "Allow public read plans" ON public.hikma_plans FOR SELECT USING (true);
 CREATE POLICY "Allow public insert plans" ON public.hikma_plans FOR INSERT WITH CHECK (true);
 CREATE POLICY "Allow public update plans" ON public.hikma_plans FOR UPDATE USING (true);
-CREATE POLICY "Allow public delete plans" ON public.hikma_plans FOR DELETE USING (true);`;
+CREATE POLICY "Allow public delete plans" ON public.hikma_plans FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read routines" ON public.hikma_routines FOR SELECT USING (true);
+CREATE POLICY "Allow public insert routines" ON public.hikma_routines FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update routines" ON public.hikma_routines FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete routines" ON public.hikma_routines FOR DELETE USING (true);
+
+CREATE POLICY "Allow public read coordinators" ON public.hikma_coordinators FOR SELECT USING (true);
+CREATE POLICY "Allow public insert coordinators" ON public.hikma_coordinators FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow public update coordinators" ON public.hikma_coordinators FOR UPDATE USING (true);
+CREATE POLICY "Allow public delete coordinators" ON public.hikma_coordinators FOR DELETE USING (true);
+
+-- Optional migration if upgrading from an older schema:
+-- ALTER TABLE public.hikma_plans DROP COLUMN IF EXISTS lesson_month;
+-- ALTER TABLE public.hikma_plans DROP COLUMN IF EXISTS lesson_week;`;
 
       const rpcDDL = `CREATE OR REPLACE FUNCTION exec_sql(sql_query text)
 RETURNS jsonb
@@ -1257,6 +1794,18 @@ $$;`;
                   className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border cursor-pointer transition-all"
                 >
                   Teachers Query
+                </button>
+                <button 
+                  onClick={() => setSqlQuery('SELECT * FROM public.hikma_routines ORDER BY class_name, section, shift, day_name;')}
+                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border cursor-pointer transition-all"
+                >
+                  Routines Query
+                </button>
+                <button 
+                  onClick={() => setSqlQuery('SELECT * FROM public.hikma_coordinators ORDER BY coordinator_name ASC;')}
+                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border cursor-pointer transition-all"
+                >
+                  Coordinators Query
                 </button>
               </div>
             </div>
@@ -1355,7 +1904,7 @@ $$;`;
                 </button>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed font-medium">
-                Run this script in the Supabase SQL editor to construct the required tables (<code>hikma_teachers</code> and <code>hikma_plans</code>) and configure public access policies.
+                Run this script in the Supabase SQL editor to construct the required tables (<code>hikma_teachers</code>, <code>hikma_plans</code>, <code>hikma_routines</code>, and <code>hikma_coordinators</code>) and configure public access policies.
               </p>
               <pre className="bg-slate-50 p-3 rounded-xl border font-mono text-[10px] text-slate-600 overflow-x-auto max-h-[220px] leading-relaxed">
                 {tableDDL}
@@ -1385,45 +1934,828 @@ $$;`;
       );
     }
 
-    function HeadmasterPortal({ isAdminLoggedIn, teachersList, lessonPlans, onLogin, onAddTeacher, onDeleteTeacher, currentFilterMonth, setCurrentFilterMonth, currentFilterWeek, setCurrentFilterWeek, supabase }) {
-      const [passwordInput, setPasswordInput] = useState('');
-      const [loginError, setLoginError] = useState('');
-      const [activeOfficeTab, setActiveOfficeTab] = useState('routine');
+    function RoutineSetupDashboard({ teachersList, routines, onAddRoutine, onDeleteRoutine }) {
+      const [routineClass, setRoutineClass] = useState('');
+      const [routineSection, setRoutineSection] = useState('');
+      const [routineShift, setRoutineShift] = useState('');
+      const [routineDay, setRoutineDay] = useState('Saturday');
+      const [routineTeacherId, setRoutineTeacherId] = useState('');
+      const [routineSubject, setRoutineSubject] = useState('');
+      const [routineIdToDelete, setRoutineIdToDelete] = useState(null);
+      const [routineAlert, setRoutineAlert] = useState(null);
+      const [filterRoutineClass, setFilterRoutineClass] = useState('');
+      const [filterRoutineSection, setFilterRoutineSection] = useState('');
+      const [filterRoutineShift, setFilterRoutineShift] = useState('');
 
-      const [searchMode, setSearchMode] = useState('class'); // 'class' | 'teacher'
-      const [targetTeacherName, setTargetTeacherName] = useState('');
-      const [targetClass, setTargetClass] = useState('');
-      const [targetSection, setTargetSection] = useState('');
-      const [targetShift, setTargetShift] = useState('');
-      const [targetMonth, setTargetMonth] = useState(currentFilterMonth);
-      const [targetWeek, setTargetWeek] = useState(currentFilterWeek);
+      const handleAddRoutineSubmit = (e) => {
+        e.preventDefault();
+        setRoutineAlert(null);
+        const teacher = teachersList.find(t => t.teacher_id === routineTeacherId);
+        if (!routineClass || !routineSection || !routineShift || !routineTeacherId || !routineSubject.trim()) {
+          setRoutineAlert({ type: 'error', text: 'Please fill in all fields before saving.' });
+          return;
+        }
+        if (!teacher) {
+          setRoutineAlert({ type: 'error', text: 'Selected teacher not found.' });
+          return;
+        }
+        onAddRoutine({
+          id: 'routine_' + Date.now(),
+          class_name: routineClass,
+          section: routineSection,
+          shift: routineShift,
+          day_name: routineDay,
+          teacher_id: teacher.teacher_id,
+          teacher_name: teacher.teacher_name,
+          subject_name: routineSubject.trim(),
+          created_at: Date.now()
+        });
+        setRoutineSubject('');
+        setRoutineAlert({ type: 'success', text: 'Routine assignment saved and synced to teacher portal.' });
+      };
 
+      const filteredRoutines = useMemo(() => {
+        return routines.filter(r => {
+          const matchClass = !filterRoutineClass || r.class_name === filterRoutineClass;
+          const matchSection = !filterRoutineSection || r.section === filterRoutineSection;
+          const matchShift = !filterRoutineShift || r.shift === filterRoutineShift;
+          return matchClass && matchSection && matchShift;
+        }).sort((a, b) => {
+          const classCmp = a.class_name.localeCompare(b.class_name);
+          if (classCmp !== 0) return classCmp;
+          const secCmp = a.section.localeCompare(b.section);
+          if (secCmp !== 0) return secCmp;
+          const shiftCmp = a.shift.localeCompare(b.shift);
+          if (shiftCmp !== 0) return shiftCmp;
+          return SCHOOL_DAYS.indexOf(a.day_name) - SCHOOL_DAYS.indexOf(b.day_name);
+        });
+      }, [routines, filterRoutineClass, filterRoutineSection, filterRoutineShift]);
+
+      const groupedRoutines = useMemo(() => {
+        const groups = {};
+        filteredRoutines.forEach(r => {
+          const key = `${r.class_name}|${r.section}|${r.shift}`;
+          if (!groups[key]) {
+            groups[key] = { class_name: r.class_name, section: r.section, shift: r.shift, byDay: {} };
+            SCHOOL_DAYS.forEach(d => { groups[key].byDay[d] = []; });
+          }
+          groups[key].byDay[r.day_name].push(r);
+        });
+        return Object.values(groups);
+      }, [filteredRoutines]);
+
+      return (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-3xl border space-y-5">
+            <div>
+              <h3 className="font-bold text-slate-900 text-lg">Class Routine Setup</h3>
+              <p className="text-xs text-slate-500 mt-1">Assign teachers and subjects for each class, section, shift, and day. Data syncs automatically to all teacher portals.</p>
+            </div>
+
+            <form onSubmit={handleAddRoutineSubmit} className="bg-slate-50 p-4 rounded-2xl border space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Class</label>
+                  <select value={routineClass} onChange={e => setRoutineClass(e.target.value)} className="w-full border p-2 rounded-xl text-sm bg-white cursor-pointer" required>
+                    <option value="">-- Class --</option>
+                    {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Section</label>
+                  <select value={routineSection} onChange={e => setRoutineSection(e.target.value)} className="w-full border p-2 rounded-xl text-sm bg-white cursor-pointer" required>
+                    <option value="">-- Section --</option>
+                    {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Shift</label>
+                  <select value={routineShift} onChange={e => setRoutineShift(e.target.value)} className="w-full border p-2 rounded-xl text-sm bg-white cursor-pointer" required>
+                    <option value="">-- Shift --</option>
+                    {SHIFTS.map(sh => <option key={sh} value={sh}>{sh}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Day</label>
+                  <select value={routineDay} onChange={e => setRoutineDay(e.target.value)} className="w-full border p-2 rounded-xl text-sm bg-white cursor-pointer" required>
+                    {SCHOOL_DAYS.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Teacher</label>
+                  <select value={routineTeacherId} onChange={e => setRoutineTeacherId(e.target.value)} className="w-full border p-2 rounded-xl text-sm bg-white cursor-pointer" required>
+                    <option value="">-- Teacher --</option>
+                    {teachersList.map(t => <option key={t.id} value={t.teacher_id}>{t.teacher_name} ({t.teacher_id})</option>)}
+                  </select>
+                </div>
+                <div className="sm:col-span-2 lg:col-span-3">
+                  <label className="text-[11px] font-bold text-slate-600 block mb-1">Subject</label>
+                  <input type="text" value={routineSubject} onChange={e => setRoutineSubject(e.target.value)} placeholder="e.g. Mathematics" className="w-full border p-2 rounded-xl text-sm bg-white" required />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer"><PlusIcon /> Add Assignment</button>
+              </div>
+            </form>
+
+            {routineAlert && (
+              <p className={`p-3 rounded-xl text-xs font-semibold ${routineAlert.type === 'success' ? 'bg-emerald-50 text-emerald-900' : 'bg-rose-50 text-rose-900'}`}>
+                {routineAlert.text}
+              </p>
+            )}
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl border space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h4 className="font-bold text-slate-900">Uploaded Routines</h4>
+              <div className="flex flex-wrap gap-2">
+                <select value={filterRoutineClass} onChange={e => setFilterRoutineClass(e.target.value)} className="border rounded-xl text-xs px-2 py-1.5 bg-slate-50 cursor-pointer">
+                  <option value="">All Classes</option>
+                  {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
+                </select>
+                <select value={filterRoutineSection} onChange={e => setFilterRoutineSection(e.target.value)} className="border rounded-xl text-xs px-2 py-1.5 bg-slate-50 cursor-pointer">
+                  <option value="">All Sections</option>
+                  {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
+                </select>
+                <select value={filterRoutineShift} onChange={e => setFilterRoutineShift(e.target.value)} className="border rounded-xl text-xs px-2 py-1.5 bg-slate-50 cursor-pointer">
+                  <option value="">All Shifts</option>
+                  {SHIFTS.map(sh => <option key={sh} value={sh}>{sh}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {groupedRoutines.length === 0 ? (
+              <p className="text-center text-slate-400 py-8 text-sm italic">No routine assignments uploaded yet.</p>
+            ) : (
+              <div className="space-y-6">
+                {groupedRoutines.map(group => (
+                  <div key={`${group.class_name}-${group.section}-${group.shift}`} className="border rounded-2xl overflow-hidden">
+                    <div className="bg-slate-900 text-white px-4 py-2.5 font-bold text-sm">
+                      Class {group.class_name} · Section {group.section} · {group.shift} Shift
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-50">
+                          <tr>
+                            {SCHOOL_DAYS.map(day => (
+                              <th key={day} className="p-3 font-bold border-b align-top min-w-[140px]">{day}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            {SCHOOL_DAYS.map(day => (
+                              <td key={day} className="p-3 border-b align-top vertical-align-top">
+                                {group.byDay[day].length === 0 ? (
+                                  <span className="text-slate-300 italic">—</span>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {group.byDay[day].map(entry => (
+                                      <div key={entry.id} className="bg-slate-50 border rounded-lg p-2 relative group">
+                                        <p className="font-bold text-slate-800">{entry.teacher_name}</p>
+                                        <p className="text-sky-700 font-semibold mt-0.5">{entry.subject_name}</p>
+                                        {routineIdToDelete === entry.id ? (
+                                          <div className="flex gap-1 mt-2">
+                                            <button onClick={() => { onDeleteRoutine(entry.id); setRoutineIdToDelete(null); }} className="bg-rose-600 text-white text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">Confirm</button>
+                                            <button onClick={() => setRoutineIdToDelete(null)} className="bg-slate-200 text-[10px] px-2 py-0.5 rounded font-bold cursor-pointer">No</button>
+                                          </div>
+                                        ) : (
+                                          <button onClick={() => setRoutineIdToDelete(entry.id)} className="absolute top-1 right-1 text-rose-400 hover:text-rose-600 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"><TrashIcon /></button>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function WeeklyLessonPlanTable({ dayColumns }) {
+      if (!dayColumns || dayColumns.length === 0) return null;
+      return (
+        <table className="weekly-lesson-table">
+          <thead>
+            <tr>
+              {dayColumns.map(col => (
+                <th key={col.dateStr}>
+                  <span className="weekly-date">{formatShortDate(col.dateStr)}</span>
+                  <span className="weekly-day">{col.dayName}</span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {dayColumns.map(col => (
+                <td key={col.dateStr}>
+                  {col.entries.map((entry, idx) => (
+                    <div key={`${col.dateStr}-${entry.subject_name}-${idx}`} className="weekly-entry">
+                      <div className="weekly-subject">{entry.subject_name}</div>
+                      <div className="weekly-plan">{entry.classWork}</div>
+                      {entry.homework && (
+                        <div className="weekly-hw">
+                          <span className="weekly-hw-label">HW:</span> {entry.homework}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      );
+    }
+
+    function findPlanForRoutine(lessonPlans, assignment, dateStr) {
+      return lessonPlans.find(p =>
+        p.teacher_name === assignment.teacher_name &&
+        p.class_name === assignment.class_name &&
+        p.section === assignment.section &&
+        p.shift === assignment.shift &&
+        p.subject_name === assignment.subject_name &&
+        p.lesson_date === dateStr
+      );
+    }
+
+    function buildWeeklyRoutineColumns(schoolDates, routines, lessonPlans, printClass, printSection, printShift) {
+      return schoolDates.map(({ dateStr, dayName }) => {
+        const dayAssignments = routines.filter(r =>
+          r.class_name === printClass &&
+          r.section === printSection &&
+          r.shift === printShift &&
+          r.day_name === dayName
+        );
+        if (dayAssignments.length === 0) return null;
+
+        const entries = dayAssignments.map(assignment => {
+          const plan = findPlanForRoutine(lessonPlans, assignment, dateStr);
+          return {
+            subject_name: assignment.subject_name,
+            classWork: plan ? plan.class_work : `${assignment.subject_name} — scheduled (plan pending)`,
+            homework: plan && plan.homework && plan.homework !== 'No Homework' ? plan.homework : null
+          };
+        });
+
+        return { dateStr, dayName, entries };
+      }).filter(Boolean);
+    }
+
+    function buildWeeklyLessonPlanColumns(schoolDates, routines, lessonPlans, printClass, printSection, printShift) {
+      return schoolDates.map(({ dateStr, dayName }) => {
+        const dayAssignments = routines.filter(r =>
+          r.class_name === printClass &&
+          r.section === printSection &&
+          r.shift === printShift &&
+          r.day_name === dayName
+        );
+
+        const entries = dayAssignments.map(assignment => {
+          const plan = findPlanForRoutine(lessonPlans, assignment, dateStr);
+          if (!plan) return null;
+          return {
+            subject_name: assignment.subject_name,
+            classWork: plan.class_work,
+            homework: plan.homework && plan.homework !== 'No Homework' ? plan.homework : null
+          };
+        }).filter(Boolean);
+
+        if (entries.length === 0) return null;
+        return { dateStr, dayName, entries };
+      }).filter(Boolean);
+    }
+
+    function TeacherManagementPanel({ teachersList, onAddTeacher, onDeleteTeacher }) {
       const [newTeacherName, setNewTeacherName] = useState('');
       const [newTeacherId, setNewTeacherId] = useState('');
       const [newTeacherPass, setNewTeacherPass] = useState('');
       const [teacherIdToDelete, setTeacherIdToDelete] = useState(null);
       const [dirAlert, setDirAlert] = useState(null);
 
-      const isSearchParameterSet = searchMode === 'class'
-        ? !!(targetClass && targetSection && targetShift && targetMonth && targetWeek)
-        : !!(targetTeacherName && targetMonth && targetWeek);
+      const handleAddTeacherSubmit = (e) => {
+        e.preventDefault();
+        setDirAlert(null);
 
-      const filteredRoutinePlans = useMemo(() => {
+        const nameClean = newTeacherName.trim();
+        const idClean = newTeacherId.trim();
+        const passClean = newTeacherPass.trim();
+
+        if (!nameClean || !idClean || !passClean) return;
+
+        if (teachersList.some(t => t.teacher_id.toLowerCase() === idClean.toLowerCase())) {
+          setDirAlert({ type: 'error', text: 'Error: This Teacher ID is already registered.' });
+          return;
+        }
+
+        onAddTeacher(nameClean, idClean, passClean);
+
+        setNewTeacherName('');
+        setNewTeacherId('');
+        setNewTeacherPass('');
+        setDirAlert({ type: 'success', text: 'Success: Teacher profile saved and synced.' });
+      };
+
+      return (
+        <div className="bg-white border p-6 sm:p-8 rounded-3xl space-y-6 max-w-3xl mx-auto shadow-sm">
+          <div>
+            <h3 className="font-bold border-b pb-3 text-slate-900 text-lg">Teacher Management</h3>
+            <p className="text-xs text-slate-500 mt-2">Register and manage teacher login credentials. Changes sync across all portals.</p>
+          </div>
+
+          <form onSubmit={handleAddTeacherSubmit} className="bg-slate-50 p-4 rounded-2xl border space-y-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Register New Teacher Profile</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">Full Name</label>
+                <input type="text" value={newTeacherName} onChange={e => setNewTeacherName(e.target.value)} placeholder="e.g. Tasnim Alom" className="w-full border p-2 rounded-xl text-sm bg-white font-medium" required />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">User Login ID</label>
+                <input type="text" value={newTeacherId} onChange={e => setNewTeacherId(e.target.value)} placeholder="e.g. t106" className="w-full border p-2 rounded-xl text-sm bg-white font-medium" required />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-slate-600 block mb-1">Secret Password</label>
+                <input type="text" value={newTeacherPass} onChange={e => setNewTeacherPass(e.target.value)} placeholder="Passcode string" className="w-full border p-2 rounded-xl text-sm bg-white font-medium" required />
+              </div>
+            </div>
+            <div className="flex justify-end pt-1">
+              <button type="submit" className="bg-violet-700 hover:bg-violet-800 text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer"><PlusIcon /> Save Credentials</button>
+            </div>
+          </form>
+
+          {dirAlert && (
+            <p className={`p-3 rounded-xl text-xs font-semibold ${dirAlert.type === 'success' ? 'bg-emerald-50 text-emerald-900' : 'bg-rose-50 text-rose-900'}`}>
+              {dirAlert.text}
+            </p>
+          )}
+
+          <div className="border rounded-xl overflow-hidden mt-4">
+            <table className="w-full text-left text-sm divide-y">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="p-4 font-bold">Teacher Name</th>
+                  <th className="p-4 font-bold">Login ID</th>
+                  <th className="p-4 font-bold">Password</th>
+                  <th className="p-4 font-bold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y bg-white">
+                {teachersList.map((teacher) => (
+                  <tr key={teacher.id}>
+                    <td className="p-4 font-bold text-slate-800">{teacher.teacher_name}</td>
+                    <td className="p-4 font-mono text-xs text-violet-700 bg-violet-50/40 font-bold">{teacher.teacher_id}</td>
+                    <td className="p-4 font-mono text-xs text-slate-600 font-medium">{teacher.passcode}</td>
+                    <td className="p-4 text-right">
+                      {teacherIdToDelete === teacher.id ? (
+                        <div className="inline-flex gap-1.5 items-center">
+                          <button onClick={() => { onDeleteTeacher(teacher.id); setTeacherIdToDelete(null); }} className="bg-rose-600 text-white text-xs px-2 py-1 rounded cursor-pointer font-bold">Confirm</button>
+                          <button onClick={() => setTeacherIdToDelete(null)} className="bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded cursor-pointer font-bold">No</button>
+                        </div>
+                      ) : (
+                        <button onClick={() => setTeacherIdToDelete(teacher.id)} className="text-rose-500 hover:text-rose-700 p-1 bg-rose-50 rounded-lg cursor-pointer"><TrashIcon /></button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+
+    function CoordinatorPortal({ loggedInCoordinator, onCoordinatorLogin, teachersList, lessonPlans, routines, onAddRoutine, onDeleteRoutine, onAddTeacher, onDeleteTeacher }) {
+      const [userId, setUserId] = useState('');
+      const [password, setPassword] = useState('');
+      const [loginError, setLoginError] = useState('');
+      const [activeCoordTab, setActiveCoordTab] = useState('routine_setup');
+
+      const [targetClass, setTargetClass] = useState('');
+      const [targetSection, setTargetSection] = useState('');
+      const [targetShift, setTargetShift] = useState('');
+      const [targetDate, setTargetDate] = useState(() => new Date().toISOString().split('T')[0]);
+      const [viewPlanModal, setViewPlanModal] = useState(null);
+
+      const [printStartDate, setPrintStartDate] = useState('');
+      const [printEndDate, setPrintEndDate] = useState('');
+      const [printClass, setPrintClass] = useState('');
+      const [printSection, setPrintSection] = useState('');
+      const [printShift, setPrintShift] = useState('');
+      const [summaryReportReady, setSummaryReportReady] = useState(false);
+      const [detailReportReady, setDetailReportReady] = useState(false);
+
+      const targetDayName = useMemo(() => getDayNameFromDate(targetDate), [targetDate]);
+      const isSearchParameterSet = !!(targetClass && targetSection && targetShift && targetDate);
+
+      const isPrintParameterSet = !!(printStartDate && printEndDate && printClass && printSection && printShift);
+
+      const assignedForDate = useMemo(() => {
         if (!isSearchParameterSet) return [];
-        return lessonPlans.filter(plan => {
-          if (searchMode === 'class') {
-            return plan.class_name === targetClass &&
-                   plan.section === targetSection &&
-                   plan.shift === targetShift &&
-                   (plan.lesson_month || 'January') === targetMonth &&
-                   (plan.lesson_week || 'Week 1') === targetWeek;
-          } else {
-            return plan.teacher_name === targetTeacherName &&
-                   (plan.lesson_month || 'January') === targetMonth &&
-                   (plan.lesson_week || 'Week 1') === targetWeek;
-          }
-        });
-      }, [lessonPlans, targetClass, targetSection, targetShift, targetTeacherName, targetMonth, targetWeek, searchMode, isSearchParameterSet]);
+        return routines.filter(r =>
+          r.class_name === targetClass &&
+          r.section === targetSection &&
+          r.shift === targetShift &&
+          r.day_name === targetDayName
+        );
+      }, [routines, targetClass, targetSection, targetShift, targetDayName, isSearchParameterSet]);
+
+      const schoolDatesInPrintRange = useMemo(() => {
+        if (!isPrintParameterSet) return [];
+        return getSchoolDatesInRange(printStartDate, printEndDate);
+      }, [printStartDate, printEndDate, isPrintParameterSet]);
+
+      const summaryDayColumns = useMemo(() => {
+        if (!isPrintParameterSet || schoolDatesInPrintRange.length === 0) return [];
+        return buildWeeklyRoutineColumns(schoolDatesInPrintRange, routines, lessonPlans, printClass, printSection, printShift);
+      }, [routines, lessonPlans, printClass, printSection, printShift, schoolDatesInPrintRange, isPrintParameterSet]);
+
+      const detailDayColumns = useMemo(() => {
+        if (!isPrintParameterSet || schoolDatesInPrintRange.length === 0) return [];
+        return buildWeeklyLessonPlanColumns(schoolDatesInPrintRange, routines, lessonPlans, printClass, printSection, printShift);
+      }, [routines, lessonPlans, printClass, printSection, printShift, schoolDatesInPrintRange, isPrintParameterSet]);
+
+      const findPlanForAssignment = (assignment) => {
+        return lessonPlans.find(p =>
+          p.teacher_name === assignment.teacher_name &&
+          p.class_name === assignment.class_name &&
+          p.section === assignment.section &&
+          p.shift === assignment.shift &&
+          p.subject_name === assignment.subject_name &&
+          p.lesson_date === targetDate
+        );
+      };
+
+      const handleLoginSubmit = (e) => {
+        e.preventDefault();
+        setLoginError('');
+        const success = onCoordinatorLogin(userId, password);
+        if (!success) {
+          setLoginError('Invalid Coordinator ID or password. Contact the Headmaster office.');
+        }
+      };
+
+      const handleGenerateSummary = (e) => {
+        e.preventDefault();
+        if (!isPrintParameterSet) return;
+        if (new Date(printStartDate) > new Date(printEndDate)) {
+          alert('Start date must be before or equal to end date.');
+          return;
+        }
+        setSummaryReportReady(true);
+      };
+
+      const handleGenerateDetail = (e) => {
+        e.preventDefault();
+        if (!isPrintParameterSet) return;
+        if (new Date(printStartDate) > new Date(printEndDate)) {
+          alert('Start date must be before or equal to end date.');
+          return;
+        }
+        setDetailReportReady(true);
+      };
+
+      const PrintFilterForm = ({ onSubmit, submitLabel }) => (
+        <form onSubmit={onSubmit} className="bg-white p-6 rounded-3xl border space-y-4 no-print">
+          <h3 className="font-bold text-slate-900 flex items-center gap-1.5"><SearchIcon /> Select Date Range & Class</h3>
+          <p className="text-xs text-slate-500">Choose starting date, ending date, class, section, and shift before generating the report.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1">Starting Date</label>
+              <input type="date" value={printStartDate} onChange={e => { setPrintStartDate(e.target.value); setSummaryReportReady(false); setDetailReportReady(false); }} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11" required />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1">Ending Date</label>
+              <input type="date" value={printEndDate} onChange={e => { setPrintEndDate(e.target.value); setSummaryReportReady(false); setDetailReportReady(false); }} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11" required />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1">Class</label>
+              <select value={printClass} onChange={e => { setPrintClass(e.target.value); setSummaryReportReady(false); setDetailReportReady(false); }} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer" required>
+                <option value="">-- Choose Class --</option>
+                {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1">Section</label>
+              <select value={printSection} onChange={e => { setPrintSection(e.target.value); setSummaryReportReady(false); setDetailReportReady(false); }} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer" required>
+                <option value="">-- Choose Section --</option>
+                {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 block mb-1">Shift</label>
+              <select value={printShift} onChange={e => { setPrintShift(e.target.value); setSummaryReportReady(false); setDetailReportReady(false); }} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer" required>
+                <option value="">-- Choose Shift --</option>
+                {SHIFTS.map(sh => <option key={sh} value={sh}>{sh} Shift</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <button type="submit" className="bg-violet-700 hover:bg-violet-800 text-white font-bold text-sm py-2.5 px-6 rounded-xl cursor-pointer">{submitLabel}</button>
+          </div>
+        </form>
+      );
+
+      if (!loggedInCoordinator) {
+        return (
+          <div className="max-w-md w-full mx-auto bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 mt-10 text-left space-y-6 shadow-xl animate-fade-in">
+            <h3 className="text-lg font-bold font-display text-slate-900 text-center flex justify-center items-center gap-1.5"><UsersIcon /> Coordinator Portal</h3>
+            <p className="text-xs text-slate-500 text-center">Use the login ID and password provided by the Headmaster office.</p>
+            {loginError && <p className="text-xs text-rose-700 bg-rose-50 p-2 rounded-xl text-center font-bold">{loginError}</p>}
+            <form onSubmit={handleLoginSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs font-semibold block mb-1">Coordinator Login ID</label>
+                <input type="text" value={userId} onChange={e => setUserId(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm" placeholder="e.g. coord01" required />
+              </div>
+              <div>
+                <label className="text-xs font-semibold block mb-1">Password</label>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm" required />
+              </div>
+              <button type="submit" className="w-full bg-violet-700 hover:bg-violet-800 font-bold text-white py-3 rounded-xl text-xs sm:text-sm cursor-pointer">Sign In</button>
+            </form>
+          </div>
+        );
+      }
+
+      return (
+        <div className="space-y-6 animate-fade-in text-left">
+          <div className="bg-violet-50 border border-violet-100 rounded-2xl px-4 py-3 no-print flex items-center justify-between">
+            <p className="text-sm font-semibold text-violet-900">Signed in as <span className="font-bold">{loggedInCoordinator.coordinator_name}</span> ({loggedInCoordinator.coordinator_id})</p>
+          </div>
+
+          <div className="flex bg-slate-200 p-1.5 rounded-2xl border no-print overflow-x-auto">
+            <button onClick={() => setActiveCoordTab('teachers')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer whitespace-nowrap ${activeCoordTab === 'teachers' ? 'bg-violet-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Teachers List</button>
+            <button onClick={() => setActiveCoordTab('routine_setup')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer whitespace-nowrap ${activeCoordTab === 'routine_setup' ? 'bg-violet-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Routine Setup</button>
+            <button onClick={() => setActiveCoordTab('routine_check')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer whitespace-nowrap ${activeCoordTab === 'routine_check' ? 'bg-violet-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Check by Date</button>
+            <button onClick={() => { setActiveCoordTab('print_summary'); setSummaryReportReady(false); }} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer whitespace-nowrap ${activeCoordTab === 'print_summary' ? 'bg-violet-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Print Weekly Routine</button>
+            <button onClick={() => { setActiveCoordTab('print_detail'); setDetailReportReady(false); }} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer whitespace-nowrap ${activeCoordTab === 'print_detail' ? 'bg-violet-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Print Lesson Plans</button>
+          </div>
+
+          {activeCoordTab === 'teachers' && (
+            <TeacherManagementPanel
+              teachersList={teachersList}
+              onAddTeacher={onAddTeacher}
+              onDeleteTeacher={onDeleteTeacher}
+            />
+          )}
+
+          {activeCoordTab === 'routine_setup' && (
+            <RoutineSetupDashboard
+              teachersList={teachersList}
+              routines={routines}
+              onAddRoutine={onAddRoutine}
+              onDeleteRoutine={onDeleteRoutine}
+            />
+          )}
+
+          {activeCoordTab === 'routine_check' && (
+            <div className="space-y-6">
+              <div className="bg-white p-6 rounded-3xl border space-y-4 no-print">
+                <h3 className="font-bold text-slate-900 flex items-center gap-1.5"><SearchIcon /> View Class by Date</h3>
+                <p className="text-xs text-slate-500">Select date, class, section, and shift. The day is detected automatically from the date.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Date</label>
+                    <input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11" />
+                    {targetDayName && <p className="text-[11px] font-bold text-violet-700 mt-1">Day: {targetDayName}</p>}
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Class</label>
+                    <select value={targetClass} onChange={e => setTargetClass(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Class --</option>
+                      {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Section</label>
+                    <select value={targetSection} onChange={e => setTargetSection(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Section --</option>
+                      {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Shift</label>
+                    <select value={targetShift} onChange={e => setTargetShift(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Shift --</option>
+                      {SHIFTS.map(sh => <option key={sh} value={sh}>{sh} Shift</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <div className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs">
+                      <span className="font-bold text-slate-700">Status legend:</span>
+                      <div className="flex gap-3 mt-1">
+                        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500 inline-block"></span> Plan submitted</span>
+                        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-rose-500 inline-block"></span> Missing plan</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {isSearchParameterSet ? (
+                <div className="bg-white rounded-3xl border p-6 sm:p-8 space-y-6 shadow-sm">
+                  <div className="flex md:items-center md:justify-between border-b pb-4 gap-4 no-print flex-wrap">
+                    <div>
+                      <h4 className="font-bold text-slate-900">Assigned Teachers — {formatDisplayDate(targetDate)}</h4>
+                      <p className="text-xs text-slate-500 mt-1">Class {targetClass} · Section {targetSection} · {targetShift} Shift · {targetDayName}</p>
+                    </div>
+                  </div>
+
+                  {targetDayName === 'Friday' ? (
+                    <div className="py-12 text-center text-amber-600 font-medium bg-amber-50 rounded-2xl border border-amber-100">Friday is a weekly holiday — no routine assignments for this date.</div>
+                  ) : assignedForDate.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 italic font-medium">No teachers assigned in the routine for this class on {targetDayName}.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm border-collapse">
+                        <thead className="bg-slate-50 border-b">
+                          <tr>
+                            <th className="p-4 font-bold w-12 text-center">Status</th>
+                            <th className="p-4 font-bold">Teacher</th>
+                            <th className="p-4 font-bold">Subject</th>
+                            <th className="p-4 font-bold text-center no-print">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {assignedForDate.map(assignment => {
+                            const plan = findPlanForAssignment(assignment);
+                            const hasPlan = !!plan;
+                            return (
+                              <tr key={assignment.id}>
+                                <td className="p-4 text-center">
+                                  <span className={`inline-block h-3.5 w-3.5 rounded-full ${hasPlan ? 'bg-emerald-500' : 'bg-rose-500'}`} title={hasPlan ? 'Lesson plan submitted' : 'Lesson plan missing'}></span>
+                                </td>
+                                <td className="p-4 font-semibold text-slate-800">{assignment.teacher_name}</td>
+                                <td className="p-4 font-bold text-sky-800">{assignment.subject_name}</td>
+                                <td className="p-4 text-center no-print">
+                                  {hasPlan ? (
+                                    <button onClick={() => setViewPlanModal(plan)} className="bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer">Lesson Full View</button>
+                                  ) : (
+                                    <span className="text-xs text-rose-400 font-semibold italic">Not submitted</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="bg-slate-100 p-8 rounded-3xl text-center text-slate-500 font-medium no-print">Select date, class, section, and shift to view assigned teachers and lesson plan status.</div>
+              )}
+            </div>
+          )}
+
+          {activeCoordTab === 'print_summary' && (
+            <div className="space-y-6">
+              <PrintFilterForm onSubmit={handleGenerateSummary} submitLabel="Generate Weekly Routine Report" />
+
+              {summaryReportReady && isPrintParameterSet && (
+                <div className="bg-white rounded-3xl border p-4 sm:p-6 shadow-sm printable-document" id="printable-summary-report">
+                  <div className="flex justify-end mb-2 no-print">
+                    <button onClick={() => window.print()} className="flex items-center gap-1.5 px-4 py-2 bg-violet-700 text-white font-bold text-xs sm:text-sm rounded-xl cursor-pointer">
+                      <PrinterIcon /><span>Print Report</span>
+                    </button>
+                  </div>
+
+                  <PrintReportHeader
+                    title="Weekly Class Routine Summary"
+                    dateRange={formatDateRangeLabel(printStartDate, printEndDate)}
+                    className={printClass}
+                    section={printSection}
+                    shift={printShift}
+                  />
+
+                  {summaryDayColumns.length === 0 ? (
+                    <p className="text-center text-slate-400 italic py-4 text-sm">No routine assignments found for the selected class and date range.</p>
+                  ) : (
+                    <WeeklyLessonPlanTable dayColumns={summaryDayColumns} />
+                  )}
+                </div>
+              )}
+
+              {!summaryReportReady && (
+                <div className="bg-slate-100 p-8 rounded-3xl text-center text-slate-500 font-medium no-print">Fill in the date range and class details, then click Generate to preview the printable routine.</div>
+              )}
+            </div>
+          )}
+
+          {activeCoordTab === 'print_detail' && (
+            <div className="space-y-6">
+              <PrintFilterForm onSubmit={handleGenerateDetail} submitLabel="Generate Detailed Lesson Plan Report" />
+
+              {detailReportReady && isPrintParameterSet && (
+                <div className="bg-white rounded-3xl border p-4 sm:p-6 shadow-sm printable-document" id="printable-detail-report">
+                  <div className="flex justify-end mb-2 no-print">
+                    <button onClick={() => window.print()} className="flex items-center gap-1.5 px-4 py-2 bg-violet-700 text-white font-bold text-xs sm:text-sm rounded-xl cursor-pointer">
+                      <PrinterIcon /><span>Print Report</span>
+                    </button>
+                  </div>
+
+                  <PrintReportHeader
+                    title="Weekly Lesson Plan Report"
+                    dateRange={formatDateRangeLabel(printStartDate, printEndDate)}
+                    className={printClass}
+                    section={printSection}
+                    shift={printShift}
+                  />
+
+                  {detailDayColumns.length === 0 ? (
+                    <p className="text-center text-slate-400 italic py-4 text-sm">No submitted lesson plans found for the selected class and date range.</p>
+                  ) : (
+                    <WeeklyLessonPlanTable dayColumns={detailDayColumns} />
+                  )}
+                </div>
+              )}
+
+              {!detailReportReady && (
+                <div className="bg-slate-100 p-8 rounded-3xl text-center text-slate-500 font-medium no-print">Fill in the date range and class details, then click Generate to preview the printable lesson plans.</div>
+              )}
+            </div>
+          )}
+
+          {viewPlanModal && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in no-print">
+              <div className="bg-white border rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative space-y-4 text-left">
+                <button onClick={() => setViewPlanModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 cursor-pointer">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <h3 className="font-bold text-slate-900 text-lg pr-8">Lesson Plan — Full View</h3>
+                <div className="space-y-2 text-sm">
+                  <p><span className="font-bold text-slate-600">Teacher:</span> {viewPlanModal.teacher_name}</p>
+                  <p><span className="font-bold text-slate-600">Date:</span> {viewPlanModal.lesson_date} ({getDayNameFromDate(viewPlanModal.lesson_date)})</p>
+                  <p><span className="font-bold text-slate-600">Class:</span> {viewPlanModal.class_name} · Section {viewPlanModal.section} · {viewPlanModal.shift}</p>
+                  <p><span className="font-bold text-slate-600">Subject:</span> {viewPlanModal.subject_name}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Class Work</p>
+                  <p className="text-sm text-slate-800 bg-slate-50 border rounded-xl p-3 whitespace-pre-wrap">{viewPlanModal.class_work}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Homework</p>
+                  <p className="text-sm text-slate-800 bg-slate-50 border rounded-xl p-3 whitespace-pre-wrap italic">{viewPlanModal.homework === 'No Homework' ? 'None assigned' : viewPlanModal.homework}</p>
+                </div>
+                <button onClick={() => setViewPlanModal(null)} className="w-full bg-violet-700 hover:bg-violet-800 text-white font-bold py-2.5 rounded-xl text-sm cursor-pointer">Close</button>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function HeadmasterPortal({ isAdminLoggedIn, coordinatorsList, lessonPlans, onLogin, onAddCoordinator, onDeleteCoordinator, routines, supabase }) {
+      const [passwordInput, setPasswordInput] = useState('');
+      const [loginError, setLoginError] = useState('');
+      const [activeOfficeTab, setActiveOfficeTab] = useState('routine_check');
+
+      const [targetClass, setTargetClass] = useState('');
+      const [targetSection, setTargetSection] = useState('');
+      const [targetShift, setTargetShift] = useState('');
+      const [targetDate, setTargetDate] = useState(() => new Date().toISOString().split('T')[0]);
+      const [viewPlanModal, setViewPlanModal] = useState(null);
+
+      const [newCoordName, setNewCoordName] = useState('');
+      const [newCoordId, setNewCoordId] = useState('');
+      const [newCoordPass, setNewCoordPass] = useState('');
+      const [coordIdToDelete, setCoordIdToDelete] = useState(null);
+      const [coordAlert, setCoordAlert] = useState(null);
+
+      const targetDayName = useMemo(() => getDayNameFromDate(targetDate), [targetDate]);
+
+      const isSearchParameterSet = !!(targetClass && targetSection && targetShift && targetDate);
+
+      const assignedForDate = useMemo(() => {
+        if (!isSearchParameterSet) return [];
+        return routines.filter(r =>
+          r.class_name === targetClass &&
+          r.section === targetSection &&
+          r.shift === targetShift &&
+          r.day_name === targetDayName
+        );
+      }, [routines, targetClass, targetSection, targetShift, targetDayName, isSearchParameterSet]);
+
+      const findPlanForAssignment = (assignment) => {
+        return lessonPlans.find(p =>
+          p.teacher_name === assignment.teacher_name &&
+          p.class_name === assignment.class_name &&
+          p.section === assignment.section &&
+          p.shift === assignment.shift &&
+          p.subject_name === assignment.subject_name &&
+          p.lesson_date === targetDate
+        );
+      };
 
       const handleLoginSubmit = (e) => {
         e.preventDefault();
@@ -1434,27 +2766,27 @@ $$;`;
         }
       };
 
-      const handleAddTeacherSubmit = (e) => {
+      const handleAddCoordinatorSubmit = (e) => {
         e.preventDefault();
-        setDirAlert(null);
-        
-        const nameClean = newTeacherName.trim();
-        const idClean = newTeacherId.trim();
-        const passClean = newTeacherPass.trim();
+        setCoordAlert(null);
+
+        const nameClean = newCoordName.trim();
+        const idClean = newCoordId.trim();
+        const passClean = newCoordPass.trim();
 
         if (!nameClean || !idClean || !passClean) return;
-        
-        if (teachersList.some(t => t.teacher_id.toLowerCase() === idClean.toLowerCase())) {
-          setDirAlert({ type: 'error', text: 'Error: This Teacher ID is already registered.' });
+
+        if (coordinatorsList.some(c => c.coordinator_id.toLowerCase() === idClean.toLowerCase())) {
+          setCoordAlert({ type: 'error', text: 'Error: This Coordinator ID is already registered.' });
           return;
         }
-        
-        onAddTeacher(nameClean, idClean, passClean);
-        
-        setNewTeacherName('');
-        setNewTeacherId('');
-        setNewTeacherPass('');
-        setDirAlert({ type: 'success', text: 'Success: Educator credential profile stored.' });
+
+        onAddCoordinator(nameClean, idClean, passClean);
+
+        setNewCoordName('');
+        setNewCoordId('');
+        setNewCoordPass('');
+        setCoordAlert({ type: 'success', text: 'Success: Coordinator login credentials saved.' });
       };
 
       if (!isAdminLoggedIn) {
@@ -1475,84 +2807,55 @@ $$;`;
 
       return (
         <div className="space-y-6 animate-fade-in text-left">
-          <div className="flex bg-slate-200 p-1.5 rounded-2xl max-w-lg border no-print">
-            <button onClick={() => setActiveOfficeTab('routine')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer ${activeOfficeTab === 'routine' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Check Routine</button>
-            <button onClick={() => setActiveOfficeTab('teachers')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer ${activeOfficeTab === 'teachers' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Teachers List</button>
-            <button onClick={() => setActiveOfficeTab('sql_console')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer ${activeOfficeTab === 'sql_console' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>SQL Console</button>
+          <div className="flex bg-slate-200 p-1.5 rounded-2xl max-w-xl border no-print overflow-x-auto">
+            <button onClick={() => setActiveOfficeTab('routine_check')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer whitespace-nowrap ${activeOfficeTab === 'routine_check' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Check by Date</button>
+            <button onClick={() => setActiveOfficeTab('coordinators')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer whitespace-nowrap ${activeOfficeTab === 'coordinators' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>Coordinators</button>
+            <button onClick={() => setActiveOfficeTab('sql_console')} className={`flex-1 py-2 px-3 text-xs sm:text-sm font-bold rounded-xl cursor-pointer whitespace-nowrap ${activeOfficeTab === 'sql_console' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>SQL Console</button>
           </div>
 
-          {activeOfficeTab === 'routine' && (
+          {activeOfficeTab === 'routine_check' && (
             <div className="space-y-6">
               <div className="bg-white p-6 rounded-3xl border space-y-4 no-print">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <h3 className="font-bold text-slate-900 flex items-center gap-1.5"><SearchIcon /> Select Routine Filters</h3>
-                  
-                  {/* Search Mode Toggle */}
-                  <div className="flex bg-slate-100 p-1 rounded-xl border w-full sm:w-auto">
-                    <button 
-                      onClick={() => setSearchMode('class')}
-                      className={`flex-1 sm:flex-initial py-1 px-3 text-xs font-bold rounded-lg cursor-pointer transition-all ${
-                        searchMode === 'class' ? 'bg-white text-slate-900 shadow border border-slate-200' : 'text-slate-500 hover:text-slate-900'
-                      }`}
-                    >
-                      Class Search
-                    </button>
-                    <button 
-                      onClick={() => setSearchMode('teacher')}
-                      className={`flex-1 sm:flex-initial py-1 px-3 text-xs font-bold rounded-lg cursor-pointer transition-all ${
-                        searchMode === 'teacher' ? 'bg-white text-slate-900 shadow border border-slate-200' : 'text-slate-500 hover:text-slate-900'
-                      }`}
-                    >
-                      Teacher Search
-                    </button>
-                  </div>
-                </div>
+                <h3 className="font-bold text-slate-900 flex items-center gap-1.5"><SearchIcon /> View Class by Date</h3>
+                <p className="text-xs text-slate-500">Select date, class, section, and shift. The day is detected automatically from the date.</p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                  {searchMode === 'class' ? (
-                    <>
-                      <div>
-                        <label className="text-xs font-semibold text-slate-600 block mb-1">Class</label>
-                        <select value={targetClass} onChange={e => setTargetClass(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
-                          <option value="">-- Choose Class --</option>
-                          {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-slate-600 block mb-1">Section</label>
-                        <select value={targetSection} onChange={e => setTargetSection(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
-                          <option value="">-- Choose Section --</option>
-                          {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-slate-600 block mb-1">Shift</label>
-                        <select value={targetShift} onChange={e => setTargetShift(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
-                          <option value="">-- Choose Shift --</option>
-                          {SHIFTS.map(sh => <option key={sh} value={sh}>{sh} Shift</option>)}
-                        </select>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="sm:col-span-2 lg:col-span-3">
-                      <label className="text-xs font-semibold text-slate-600 block mb-1">Teacher Name</label>
-                      <select value={targetTeacherName} onChange={e => setTargetTeacherName(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
-                        <option value="">-- Select Teacher --</option>
-                        {teachersList.map(t => <option key={t.id} value={t.teacher_name}>{t.teacher_name} ({t.teacher_id})</option>)}
-                      </select>
-                    </div>
-                  )}
                   <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Month</label>
-                    <select value={targetMonth} onChange={e => setTargetMonth(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
-                      {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Date</label>
+                    <input type="date" value={targetDate} onChange={e => setTargetDate(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11" />
+                    {targetDayName && (
+                      <p className="text-[11px] font-bold text-sky-700 mt-1">Day: {targetDayName}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Class</label>
+                    <select value={targetClass} onChange={e => setTargetClass(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Class --</option>
+                      {CLASSES.map(cls => <option key={cls} value={cls}>Class {cls}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-600 block mb-1">Week</label>
-                    <select value={targetWeek} onChange={e => setTargetWeek(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
-                      {WEEKS.map(w => <option key={w} value={w}>{w}</option>)}
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Section</label>
+                    <select value={targetSection} onChange={e => setTargetSection(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Section --</option>
+                      {SECTIONS.map(sec => <option key={sec} value={sec}>Section {sec}</option>)}
                     </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600 block mb-1">Shift</label>
+                    <select value={targetShift} onChange={e => setTargetShift(e.target.value)} className="w-full bg-slate-50 border p-2.5 rounded-xl text-sm h-11 cursor-pointer">
+                      <option value="">-- Choose Shift --</option>
+                      {SHIFTS.map(sh => <option key={sh} value={sh}>{sh} Shift</option>)}
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <div className="w-full bg-slate-50 border rounded-xl p-2.5 text-xs">
+                      <span className="font-bold text-slate-700">Status legend:</span>
+                      <div className="flex gap-3 mt-1">
+                        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500 inline-block"></span> Plan submitted</span>
+                        <span className="flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-rose-500 inline-block"></span> Missing plan</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1560,70 +2863,62 @@ $$;`;
               {isSearchParameterSet ? (
                 <div className="bg-white rounded-3xl border p-6 sm:p-8 space-y-6 shadow-sm" id="printable-report-card">
                   <div className="flex md:items-center md:justify-between border-b pb-4 gap-4 no-print flex-wrap">
-                    <h4 className="font-bold text-slate-900">Syllabus Sheet Output</h4>
+                    <div>
+                      <h4 className="font-bold text-slate-900">Assigned Teachers — {formatDisplayDate(targetDate)}</h4>
+                      <p className="text-xs text-slate-500 mt-1">Class {targetClass} · Section {targetSection} · {targetShift} Shift · {targetDayName}</p>
+                    </div>
                     <button onClick={() => window.print()} className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white font-bold text-xs sm:text-sm rounded-xl cursor-pointer">
                       <PrinterIcon />
-                      <span>{searchMode === 'class' ? 'Print Class Routine' : 'Print Teacher Schedule'}</span>
+                      <span>Print Report</span>
                     </button>
                   </div>
 
-                  <div className="text-center pb-5 border-b-2 border-slate-800 flex flex-col items-center justify-center">
-                    <div className="mb-3 bg-white p-2 rounded-xl border flex items-center justify-center">
-                      <Logo className="h-[64px] w-[64px]" />
+                  {targetDayName === 'Friday' ? (
+                    <div className="py-12 text-center text-amber-600 font-medium bg-amber-50 rounded-2xl border border-amber-100">
+                      Friday is a weekly holiday — no routine assignments for this date.
                     </div>
-                    <h1 className="text-2xl font-black font-display tracking-wide uppercase text-slate-900">Hikma International School</h1>
-                    <h2 className="text-lg font-bold text-slate-700 mt-1">
-                      {searchMode === 'class' ? 'Class Routine' : 'Teacher Schedule'}
-                    </h2>
-                    <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono font-semibold text-slate-600 pt-2">
-                      {searchMode === 'class' ? (
-                        <>
-                          <span>Class: {targetClass}</span> • <span>Section: {targetSection}</span> • <span>Shift: {targetShift}</span> • <span>{targetMonth} ({targetWeek})</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Educator: {targetTeacherName}</span> • <span>{targetMonth} ({targetWeek})</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {filteredRoutinePlans.length === 0 ? (
-                    <div className="py-12 text-center text-slate-400 italic font-medium">No classroom routine tasks recorded matching this selection framework.</div>
+                  ) : assignedForDate.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 italic font-medium">No teachers assigned in the routine for this class on {targetDayName}.</div>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-left text-sm border-collapse">
                         <thead className="bg-slate-50 border-b">
                           <tr>
-                            <th className="p-4 font-bold">Date</th>
-                            <th className="p-4 font-bold">
-                              {searchMode === 'class' ? 'Educator' : 'Class / Shift'}
-                            </th>
+                            <th className="p-4 font-bold w-12 text-center">Status</th>
+                            <th className="p-4 font-bold">Teacher</th>
                             <th className="p-4 font-bold">Subject</th>
-                            <th className="p-4 font-bold">Class Work Details</th>
-                            <th className="p-4 font-bold">Assigned Homework</th>
+                            <th className="p-4 font-bold text-center no-print">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y">
-                          {filteredRoutinePlans.map(p => (
-                            <tr key={p.id}>
-                              <td className="p-4 whitespace-nowrap"><b>{p.lesson_date}</b></td>
-                              <td className="p-4 font-semibold">
-                                {searchMode === 'class' ? (
-                                  p.teacher_name
-                                ) : (
-                                  <span className="bg-sky-50 text-sky-800 text-[10px] font-bold px-2 py-0.5 rounded border inline-block">
-                                    Class {p.class_name} ({p.section}) - {p.shift}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-4 font-bold text-slate-800">{p.subject_name}</td>
-                              <td className="p-4 text-xs sm:text-sm whitespace-pre-wrap">{p.class_work}</td>
-                              <td className="p-4 text-xs italic">
-                                {p.homework === 'No Homework' ? <span className="text-slate-300">None</span> : p.homework}
-                              </td>
-                            </tr>
-                          ))}
+                          {assignedForDate.map(assignment => {
+                            const plan = findPlanForAssignment(assignment);
+                            const hasPlan = !!plan;
+                            return (
+                              <tr key={assignment.id}>
+                                <td className="p-4 text-center">
+                                  <span
+                                    className={`inline-block h-3.5 w-3.5 rounded-full ${hasPlan ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]'}`}
+                                    title={hasPlan ? 'Lesson plan submitted' : 'Lesson plan missing'}
+                                  ></span>
+                                </td>
+                                <td className="p-4 font-semibold text-slate-800">{assignment.teacher_name}</td>
+                                <td className="p-4 font-bold text-sky-800">{assignment.subject_name}</td>
+                                <td className="p-4 text-center no-print">
+                                  {hasPlan ? (
+                                    <button
+                                      onClick={() => setViewPlanModal(plan)}
+                                      className="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer"
+                                    >
+                                      Lesson Full View
+                                    </button>
+                                  ) : (
+                                    <span className="text-xs text-rose-400 font-semibold italic">Not submitted</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1631,69 +2926,101 @@ $$;`;
                 </div>
               ) : (
                 <div className="bg-slate-100 p-8 rounded-3xl text-center text-slate-500 font-medium">
-                  {searchMode === 'class' 
-                    ? "Awaiting parameter selection. Please configure active Class, Section, Shift, Month, and Week specifications."
-                    : "Awaiting parameter selection. Please configure active Teacher Name, Month, and Week specifications."}
+                  Select date, class, section, and shift to view assigned teachers and lesson plan status.
                 </div>
               )}
             </div>
           )}
 
-          {activeOfficeTab === 'teachers' && (
+          {viewPlanModal && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in no-print">
+              <div className="bg-white border rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative space-y-4 text-left">
+                <button
+                  onClick={() => setViewPlanModal(null)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-full hover:bg-slate-100 cursor-pointer"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+                <h3 className="font-bold text-slate-900 text-lg pr-8">Lesson Plan — Full View</h3>
+                <div className="space-y-2 text-sm">
+                  <p><span className="font-bold text-slate-600">Teacher:</span> {viewPlanModal.teacher_name}</p>
+                  <p><span className="font-bold text-slate-600">Date:</span> {viewPlanModal.lesson_date} ({getDayNameFromDate(viewPlanModal.lesson_date)})</p>
+                  <p><span className="font-bold text-slate-600">Class:</span> {viewPlanModal.class_name} · Section {viewPlanModal.section} · {viewPlanModal.shift}</p>
+                  <p><span className="font-bold text-slate-600">Subject:</span> {viewPlanModal.subject_name}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Class Work</p>
+                  <p className="text-sm text-slate-800 bg-slate-50 border rounded-xl p-3 whitespace-pre-wrap">{viewPlanModal.class_work}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Homework</p>
+                  <p className="text-sm text-slate-800 bg-slate-50 border rounded-xl p-3 whitespace-pre-wrap italic">
+                    {viewPlanModal.homework === 'No Homework' ? 'None assigned' : viewPlanModal.homework}
+                  </p>
+                </div>
+                <button onClick={() => setViewPlanModal(null)} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl text-sm cursor-pointer">Close</button>
+              </div>
+            </div>
+          )}
+
+          {activeOfficeTab === 'coordinators' && (
             <div className="bg-white border p-6 sm:p-8 rounded-3xl space-y-6 max-w-3xl mx-auto shadow-sm">
-              <h3 className="font-bold border-b pb-3 text-slate-900 text-lg">Faculty Management Directory</h3>
-              
-              <form onSubmit={handleAddTeacherSubmit} className="bg-slate-50 p-4 rounded-2xl border space-y-4">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Register New Teacher Profile</h4>
+              <h3 className="font-bold border-b pb-3 text-slate-900 text-lg">Coordinator Account Management</h3>
+              <p className="text-xs text-slate-500">Create login ID and password for coordinators. Coordinators manage teachers, routines, and printable reports.</p>
+
+              <form onSubmit={handleAddCoordinatorSubmit} className="bg-slate-50 p-4 rounded-2xl border space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Register New Coordinator</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label className="text-[11px] font-bold text-slate-600 block mb-1">Full Name</label>
-                    <input type="text" value={newTeacherName} onChange={e => setNewTeacherName(e.target.value)} placeholder="e.g. Tasnim Alom" className="w-full border p-2 rounded-xl text-sm bg-white font-medium" required />
+                    <input type="text" value={newCoordName} onChange={e => setNewCoordName(e.target.value)} placeholder="e.g. Karim Hassan" className="w-full border p-2 rounded-xl text-sm bg-white font-medium" required />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">User Login ID</label>
-                    <input type="text" value={newTeacherId} onChange={e => setNewTeacherId(e.target.value)} placeholder="e.g. t106" className="w-full border p-2 rounded-xl text-sm bg-white font-medium" required />
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Login ID</label>
+                    <input type="text" value={newCoordId} onChange={e => setNewCoordId(e.target.value)} placeholder="e.g. coord01" className="w-full border p-2 rounded-xl text-sm bg-white font-medium" required />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Secret Password</label>
-                    <input type="text" value={newTeacherPass} onChange={e => setNewTeacherPass(e.target.value)} placeholder="Passcode string" className="w-full border p-2 rounded-xl text-sm bg-white font-medium" required />
+                    <label className="text-[11px] font-bold text-slate-600 block mb-1">Password</label>
+                    <input type="text" value={newCoordPass} onChange={e => setNewCoordPass(e.target.value)} placeholder="Secret password" className="w-full border p-2 rounded-xl text-sm bg-white font-medium" required />
                   </div>
                 </div>
                 <div className="flex justify-end pt-1">
-                  <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer"><PlusIcon /> Save Credentials</button>
+                  <button type="submit" className="bg-violet-700 hover:bg-violet-800 text-white font-bold text-xs py-2 px-4 rounded-xl flex items-center gap-1.5 cursor-pointer"><PlusIcon /> Save Coordinator</button>
                 </div>
               </form>
-              
-              {dirAlert && (
-                <p className={`p-3 rounded-xl text-xs font-semibold ${dirAlert.type === 'success' ? 'bg-emerald-50 text-emerald-900' : 'bg-rose-50 text-rose-900'}`}>
-                  {dirAlert.text}
+
+              {coordAlert && (
+                <p className={`p-3 rounded-xl text-xs font-semibold ${coordAlert.type === 'success' ? 'bg-emerald-50 text-emerald-900' : 'bg-rose-50 text-rose-900'}`}>
+                  {coordAlert.text}
                 </p>
               )}
-              
+
               <div className="border rounded-xl overflow-hidden mt-4">
                 <table className="w-full text-left text-sm divide-y">
                   <thead className="bg-slate-50">
                     <tr>
-                      <th className="p-4 font-bold">Teacher Name</th>
-                      <th className="p-4 font-bold">Workspace ID</th>
-                      <th className="p-4 font-bold">Secret Passcode</th>
-                      <th className="p-4 font-bold text-right">Office Actions</th>
+                      <th className="p-4 font-bold">Coordinator Name</th>
+                      <th className="p-4 font-bold">Login ID</th>
+                      <th className="p-4 font-bold">Password</th>
+                      <th className="p-4 font-bold text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y bg-white">
-                    {teachersList.map((teacher) => (
-                      <tr key={teacher.id}>
-                        <td className="p-4 font-bold text-slate-800">{teacher.teacher_name}</td>
-                        <td className="p-4 font-mono text-xs text-sky-700 bg-sky-50/40 font-bold">{teacher.teacher_id}</td>
-                        <td className="p-4 font-mono text-xs text-slate-600 font-medium">{teacher.passcode}</td>
+                    {coordinatorsList.length === 0 ? (
+                      <tr><td colSpan="4" className="p-8 text-center text-slate-400 italic">No coordinator accounts created yet.</td></tr>
+                    ) : coordinatorsList.map((coord) => (
+                      <tr key={coord.id}>
+                        <td className="p-4 font-bold text-slate-800">{coord.coordinator_name}</td>
+                        <td className="p-4 font-mono text-xs text-violet-700 bg-violet-50/40 font-bold">{coord.coordinator_id}</td>
+                        <td className="p-4 font-mono text-xs text-slate-600 font-medium">{coord.passcode}</td>
                         <td className="p-4 text-right">
-                          {teacherIdToDelete === teacher.id ? (
+                          {coordIdToDelete === coord.id ? (
                             <div className="inline-flex gap-1.5 items-center">
-                              <button onClick={() => { onDeleteTeacher(teacher.id); setTeacherIdToDelete(null); }} className="bg-rose-600 text-white text-xs px-2 py-1 rounded cursor-pointer font-bold">Confirm</button>
-                              <button onClick={() => setTeacherIdToDelete(null)} className="bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded cursor-pointer font-bold">No</button>
+                              <button onClick={() => { onDeleteCoordinator(coord.id); setCoordIdToDelete(null); }} className="bg-rose-600 text-white text-xs px-2 py-1 rounded cursor-pointer font-bold">Confirm</button>
+                              <button onClick={() => setCoordIdToDelete(null)} className="bg-slate-200 text-slate-700 text-xs px-2 py-1 rounded cursor-pointer font-bold">No</button>
                             </div>
                           ) : (
-                            <button onClick={() => setTeacherIdToDelete(teacher.id)} className="text-rose-500 hover:text-rose-700 p-1 bg-rose-50 rounded-lg cursor-pointer"><TrashIcon /></button>
+                            <button onClick={() => setCoordIdToDelete(coord.id)} className="text-rose-500 hover:text-rose-700 p-1 bg-rose-50 rounded-lg cursor-pointer"><TrashIcon /></button>
                           )}
                         </td>
                       </tr>
